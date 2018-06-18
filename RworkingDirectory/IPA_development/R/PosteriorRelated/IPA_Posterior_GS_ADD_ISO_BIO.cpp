@@ -88,9 +88,8 @@ NumericVector listEleIntoVec(List ls, int idx){
   return ls[idx];
 }
 
-
 // [[Rcpp::export]]
-NumericMatrix gibbsSampling(  List removal,
+NumericMatrix GibbsSampling(  List removal,
                               NumericVector sampcomp,
                               NumericVector potAdd,
                               NumericVector potIso,
@@ -103,52 +102,39 @@ NumericMatrix gibbsSampling(  List removal,
                               double delIso,
                               double delBio,
                               int itNum,
-                              int burn
+                              int burn,
+                              bool v
                               ){
     bool replace = false;
     int massNum = prior.rows();
     int compNum = prior.cols();
-    // std::cout << "massNum!!!! "<< massNum <<std::endl;
-    // std::cout << "compNUm!!!! "<< compNum <<std::endl;
-    NumericMatrix allsampcomp(itNum, massNum);
-    // NumericMatrix allposterior(massNum, compNum);
-    for(int i = 0; i < itNum; i++){
-      // std::cout << "print sampcomp here"<< std::endl;
-      // printOutVec(sampcomp);
 
+    NumericMatrix allsampcomp(itNum, massNum);
+
+    for(int i = 0; i < itNum; i++){
       NumericVector ordine(massNum);
       NumericVector massNumVec(1);
       massNumVec[0] = massNum;
       ordine = sampleRcppUnExport (massNumVec, massNum, replace);
-      // ordine = sampleUnExport(massNum,massNum,false);
-      
-      // int x = 0;
-      // NumericVector result(size);
-      
-      // std::cout << "print ordine here "<< std::endl;
-      // printOutVec(ordine);
+
       for(const auto n : ordine )    {
         int thism = (n - 1);
-        // std::cout << "ttttttttttthismmmmmmmm "<< thism <<std::endl;
-        NumericVector remMess = listEleIntoVec(removal, thism) - 1;
-        // std::cout << "rrrrrremMesssss "<< thism <<std::endl;
-        NumericVector remComp = sampcomp[remMess];
-        // std::cout << "rrrrrremCompppp "<< thism <<std::endl;
+        
+        // assignmented compounds of masses need to remove
+        NumericVector remMass = listEleIntoVec(removal, thism) - 1;
+        NumericVector remComp = sampcomp[remMass];
         
         // counting adductrelations
         NumericVector remAdd = getRowsAndDoColsum(add, remComp);
         NumericVector pAdd = potAdd - remAdd;
-        // std::cout << "padd done "<<std::endl;
         
         // counting isotoperelations
         NumericVector remIso = getRowsAndDoColsum(iso, remComp);
         NumericVector pIso = potIso - remIso;
-        // std::cout << "piso done "<<std::endl;
         
         // counting biotransformations relations
         NumericVector remBio = bio.row(sampcomp[thism] - 1);
         NumericVector pBio = potBio - remBio;
-        // std::cout << "pbio done "<<std::endl;
   
         // adding penalities, ##only into add relation and iso relation
 
@@ -156,21 +142,18 @@ NumericMatrix gibbsSampling(  List removal,
         pAdd = (pAdd + delAdd) / vecSum(pAdd + delAdd);
         pIso = (pIso + delIso) / vecSum(pIso + delIso);
         pBio = (pBio + delBio) / vecSum(pBio + delBio);
-        // std::cout << "normalised with deltas done "<<std::endl;
         
         // merging scores, dot product
         NumericVector post = prior.row(thism) * pAdd * pIso * pBio;
-        // NumericVector post = prior.row(thism);
-        // NumericVector post = pBio;
-        // std::cout << "posterior unnormalised done "<< thism << std::endl;
+        
+        // // eliminate negative value
+        // post[post < 0] = 0;
         
         // normalise posterior probability
         NumericVector posterior = post / vecSum(post);
-        // std::cout << "posterior normalised done "<< thism <<std::endl;
         
         // // get the origin sampling result of mass 'thism'
         int oldsamp = sampcomp[thism];
-        // std::cout << "oldsamp done "<< "thism " << thism << "oldsamp: " << oldsamp <<std::endl;
 
         // use normalised probability po to re-sample mass 'thism'
         NumericVector sampVec = initVec(compNum);
@@ -178,33 +161,30 @@ NumericMatrix gibbsSampling(  List removal,
         // NumericVector newSampVec = multsampleUnExport(sampVec, true, posterior);
         NumericVector newSampVec = sampleRcppUnExport(sampVec, 1, true, posterior);
         int newSamp = newSampVec[0];
-        // std::cout << "newsamp done "<< "thism " << thism << "newsamp: " << newSamp <<std::endl;
 
         // update sampcomp
         sampcomp[thism] = newSamp;
-        // std::cout << "sampcomp update done "<< thism <<std::endl;
-
 
         // if re-sample works, then
         if(oldsamp!=newSamp){
           potAdd = potAdd - add.row(oldsamp-1) + add.row(newSamp-1);
           potIso = potIso - iso.row(oldsamp-1) + iso.row(newSamp-1);
           potBio = potBio - bio.row(oldsamp-1) + bio.row(newSamp-1);
-          // std::cout << "colsum update done "<< thism <<std::endl;
         }
-        // std::cout << "no colsum update "<< thism <<std::endl;
     }
       
     // when finishing each iteration 
-    // get the whole new sampcomp vector, where each element(mess) get resampled using its po (posterior probability vector)
+    // get the whole new sampcomp vector, where each element(mess) get resampled using its posterior probability vector
     allsampcomp.row(i) = sampcomp;
+      if(v){
+        Rcout << "Computing Posterior in Rcpp, " << (i * 100) / itNum <<"%" << std::endl;
+      }
   }
-    // std::cout << "allsampcomp update done "<<std::endl;
     
   // calculate posterior probability using allsampcomp which is a sampling distribution matrix (row num: no.its; col num: m, which is the number of masses)
   NumericMatrix posterior = computePost(itNum, massNum, compNum, burn, allsampcomp);
   
-  // decide which kind of value to return
+  // decide which kind of value to return, temporarily ignored
   // if(allsamp){
   //   List outList;
   //   outList["post"] = posterior;
@@ -214,77 +194,3 @@ NumericMatrix gibbsSampling(  List removal,
     return posterior;  
   // }
 }
-
-// // [[Rcpp::export]]
-// NumericVector testVecProd(NumericVector X){
-//   bool replace = FALSE;
-//   const NumericVector post = NumericVector::create(0.8,0.1,0.1);
-//   NumericVector newsamp = sampleRcppUnExport(X, 1, replace, post);
-//   for (auto n : post){
-//     std::cout << n;
-//   }
-//   return newsamp;
-//   
-// }
-// 
-// // [[Rcpp::export]]
-// NumericVector testMatrixRow(NumericMatrix X, int Y){
-//   NumericVector result = X.row(Y);
-//   
-//   return result;
-//   
-// }
-// 
-// // [[Rcpp::export]]
-// NumericVector text(NumericMatrix mat, NumericVector rowIdices)
-// {
-//   NumericVector sum(mat.ncol());
-//   for(auto n : rowIdices ){
-//     sum += mat.row(n-1);
-//   }
-//   return sum;
-// }
-// //[[Rcpp::export]]
-// NumericVector selectCols(NumericMatrix mat, int idx){
-//   NumericVector result = mat.column(idx-1);
-//   return result;
-// }
-
-
-// // [[Rcpp::export]]
-// NumericVector testDivision(NumericVector a, int b)
-// { 
-//   return a / b ;
-// }
-
-
-// NumericVector sampleUnExport( int x,
-//                               int size,
-//                               bool replace
-// )
-// { 
-//     // Obtain environment containing function
-//     Rcpp::Environment package_env("package:base"); 
-//     
-//     // Make function callable from C++
-//     Rcpp::Function sample = package_env["sample"]; 
-//     // NumericVector ret = sample(Named("x",x), Named("size",size), Named("replace",replace),Named("prob",prob));
-//     NumericVector ret = sample(x, size, replace);
-//     return ret;
-// }
-
-
-// NumericVector multsampleUnExport( NumericVector x,
-//                                   bool replace,
-//                                   NumericVector prob
-// )
-// { 
-//   // Obtain environment containing function
-//   Rcpp::Environment package_env("package:base"); 
-//   
-//   // Make function callable from C++
-//   Rcpp::Function sample = package_env["sample"]; 
-//   // NumericVector ret = sample(Named("x",x), Named("size",size), Named("replace",replace),Named("prob",prob));
-//   NumericVector ret = sample(x, 1, replace, prob);
-//   return ret;
-// }

@@ -1,5 +1,5 @@
 ### checking rel.id
-"checking.rel.id" <- function(rel.id,i){
-  out <- c(i,which(rel.id!=rel.id[i]))
+"CheckingRelId" <- function(relId,i){
+  out <- c(i,which(relId!=relId[i]))
   out
 }

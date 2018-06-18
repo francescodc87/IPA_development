@@ -1,6 +1,6 @@
 ### using correlations
-"checking.corr" <- function(Corr.vec,i, corr.thr){
+"CheckingCorr" <- function(corrVec,i, corrThld){
   # no need to record i, because correlation(i,i) = 1, always < corr.thr, so i always included
-  out <- which(Corr.vec<corr.thr)
+  out <- which(corrVec<corrThld)
   out
 }
