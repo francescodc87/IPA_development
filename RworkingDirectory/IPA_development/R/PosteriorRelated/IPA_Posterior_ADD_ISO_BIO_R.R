@@ -73,57 +73,57 @@
     #create a matrix: row: iteration number
     #                 column: row number of Prior probabilities matrix, which is the mass number
     allsampcomp <- matrix(0, it, M) 
-
-    
+    # 
+    # 
     for (i in 1:it){
         # create a vector radomly, from sampling, M : row number of Prior probabilities matrix
-        ordine <- sample(M)  
+        ordine <- sample(M)
         # pick one mass, its index is row number 'thism' in Prior probabilities matrix
         # which indicates that this iteration is for mass 'thism'
         for (thism in ordine){
-            
+
             # remIdx[[thism]] means when picking mass 'thism', only these masses can be counted into calculation of adduct relation
             # sampcomp[x] gives the compounds which can be counted into calculation of adduct relation
             # Add(CxC), Add[x,] picks out the relation matrix only concerned the compounds indicate by sampcomp[x]  # ncol = Nc is used when colSunms(a vector)
             # potAdd is a column sum operation on matrix S1(s1xc), Add(all the compounds related to all the masses which is refered by sampling, C) => S1(s1xc)
             # colSums() is doing column sum operation on matrix S2(s2xc), Add(all the compounds related to mass 'thism' which is refered by sampcomp[remIdx[[thism]]], C) => S2(s2xc)
-            
+
             pAdd <- potAdd - colSums(matrix(Add[sampcomp[remIdx[[thism]]],], ncol=Nc))
-          
+
             # remIdx[[thism]] means when picking mass 'thism', only these masses can be counted into calculation of adduct relation
             # sampcomp[x] gives the compounds which can be counted into calculation of isotope relation
             # Iso(CxC), Iso[x,] picks out the relation matrix only concerned the compounds indicate by sampcomp[x]  # ncol = Nc is used when colSunms(a vector)
             # potIso is a column sum operation on matrix S1(s1xc), Iso(all the compounds related to all the masses which is refered by sampling, C) => S1(s1xc)
             # colSums() is doing column sum operation on matrix S2(s2xc), Iso(all the compounds related to mass 'thism' which is refered by sampcomp[remIdx[[thism]]], C) => S2(s2xc)
-            
+
             pIso <- potIso - colSums(matrix(Iso[sampcomp[remIdx[[thism]]],], ncol=Nc))
-            
+
             # counting biotransformations
             # ncol = Nc is used when colSunms(a vector)
-            
+
             pBio <- potBio - colSums(matrix(Bio[sampcomp[thism],], ncol=Nc))
-            
+
             ## adding penalities, ##only into add relation and iso relation
             if(!is.null(unknownPen)){
               pAdd[length(pAdd)] <- unknownPen
               pIso[length(pIso)] <- unknownPen
-              
-            } 
-            
+
+            }
+
             # normalising with deltas
             pAdd <- (pAdd + delAdd)/sum(pAdd+delAdd)
             pIso <- (pIso + delIso)/sum(pIso+delIso)
             pBio <- (pBio + delBio)/sum(pBio+delBio)
-            
+
             # merging scores, * means dot product
             po <- pAdd*pIso*pBio*P[thism,]
-            
+
             # # eliminate negative value
             # po[po < 0] <- 0
-            
+
             # normalise probability
             po <- po/sum(po)
-            
+
             # get the origin sampling result of mass 'thism'
             oldval <- sampcomp[thism]
             # use normalised probability po to re-sample mass 'thism'
@@ -153,7 +153,7 @@
                  potBio <- potBio - Bio[,oldval]
                  potBio <- potBio + Bio[,sampcomp[thism]]
               }
-        }
+    }
             # when finishing each iteration 'i'
             # get the whole new sampcomp vector, where each element(mess) get resampled using its po (posterior probability vector)
             # so, allsampcomp[i,] is the new sampcomp vector when finishing iteration 'i'
@@ -162,7 +162,7 @@
               cat("Computing Posterior in R, ",paste0(round((i*100)/it,0), "%", "\n"))
             }
     }
-    
+
     # calculate posterior probability using allsampcomp which is a sampling distribution matrix (row num: i; col num: m, which is the number of masses)
     # the calculation is completed by implementing function compute.post on every column of allsampcomp
     # Nc: row number of adducts connections matrix, which is the number of compounds
@@ -173,6 +173,7 @@
       out <- list(Post=post, allsampcomp=allsampcomp)
       return(out)
     }else{
-      return(post)  
+      return(post)
     }
+
 }

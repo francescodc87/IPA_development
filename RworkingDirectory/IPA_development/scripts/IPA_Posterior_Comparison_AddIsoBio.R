@@ -5,14 +5,19 @@ source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_Che
 source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_Checking_relID.R')
 source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_Checking_corr.R')
 
-Rcpp::sourceCpp('R/PosteriorRelated/IPA_Posterior_Sample_Rcpp.cpp')
-Rcpp::sourceCpp('R/PosteriorRelated/IPA_Posterior_GS_ADD_ISO_BIO.cpp')   #'GS' = 'GibbsSampling'
+Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_Sample_Rcpp.cpp')
+Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_GS_ADD_ISO_BIO.cpp')   #'GS' = 'GibbsSampling'
 source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_Multsample_Rcpp.R')
 source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_ADD_ISO_BIO_Rcpp.R')
 
 source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_Multsample_R.R')
 source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_Compute_post.R')
 source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_ADD_ISO_BIO_R.R')
+
+# source when solving posterior rcpp slow
+Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_GS_ADD_ISO_BIO_DEBUG.cpp')
+source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_ADD_ISO_BIO_R_DEBUG.R')
+source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_ADD_ISO_BIO_Rcpp_DEBUG.R')
 
 ## These two are for debug use
 # debug(IPA.sampler.Add.Iso.Bio)
@@ -24,24 +29,40 @@ source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_ADD
 # using dataset_prova.Rdata to test if prior computing in R and Rcpp agreed
 # postR <- ComputePosteriorR_Add_Iso_Bio(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix)
 # postRcpp <- ComputePosteriorRcpp_Add_Iso_Bio(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix)
-# tmp <- NULL
-# for(i in 1:100){
-#   postR <- ComputePosteriorR_Add_Iso_Bio(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix)
-#   postRcpp <- ComputePosteriorRcpp_Add_Iso_Bio(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix)
-#   tmp <- rbind(tmp, as.vector(t(postR)-t(postRcpp)))
-# }
-# boxplot(tmp)
+tmp <- NULL
+for(i in 1:100){
+  postR <- ComputePosteriorR_Add_Iso_Bio(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix)
+  postRcpp <- ComputePosteriorRcpp_Add_Iso_Bio(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix)
+  tmp <- rbind(tmp, as.vector(t(postR)-t(postRcpp)))
+}
+boxplot(tmp)
 
-# # using dataset_prova.Rdata to do efficiency comparison
-# benchmark(replications = 1,
-#           samplerR = ComputePosteriorR_Add_Iso_Bio(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix),
-#           samplerRcpp = ComputePosteriorRcpp_Add_Iso_Bio(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix),
-#           columns = c('test','elapsed','relative','replications'),
-#           order = c('relative'),
-#           relative = 'elapsed')
+# using dataset_prova.Rdata to do efficiency comparison
+benchmark(replications = 10,
+          samplerR = ComputePosteriorR_Add_Iso_Bio(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix),
+          samplerRcpp = ComputePosteriorRcpp_Add_Iso_Bio(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix),
+          columns = c('test','elapsed','relative','replications'),
+          order = c('relative'),
+          relative = 'elapsed')
 
 
 
+## used when debugging posterior slow issue
+tmp <- NULL
+for(i in 1:100){
+  postR <- ComputePosteriorR_Add_Iso_Bio_Debug(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix)
+  postRcpp <- ComputePosteriorRcpp_Add_Iso_Bio_Debug(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix)
+  tmp <- rbind(tmp, as.vector(t(postR)-t(postRcpp)))
+}
+boxplot(tmp)
+
+
+benchmark(replications = 10,
+          samplerR = ComputePosteriorR_Add_Iso_Bio_Debug(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix),
+          samplerRcpp = ComputePosteriorRcpp_Add_Iso_Bio_Debug(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix),
+          columns = c('test','elapsed','relative','replications'),
+          order = c('relative'),
+          relative = 'elapsed')
 
 
 

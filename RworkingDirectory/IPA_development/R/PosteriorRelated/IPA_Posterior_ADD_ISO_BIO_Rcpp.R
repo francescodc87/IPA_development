@@ -58,7 +58,8 @@
   #about function multsampleRcpp: doing sampling work
   #result: get a vector where each metabolite is assigned to a compound, e.g. sampcomp[x] = y indicates that mass of row x in matrix P 
   #        is assigned to compound of column y in matrix P
-  sampcomp <- apply(P,1,multsampleRcpp)
+  # sampcomp <- apply(P,1,multsampleRcpp)
+  sampcomp <- apply(P,1,multsample)
 
   
   # apply(,2,sum) is doing column sum operation on Add[sampcomp,]

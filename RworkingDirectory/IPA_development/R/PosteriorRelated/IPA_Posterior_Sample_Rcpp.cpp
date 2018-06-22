@@ -6,7 +6,7 @@ using namespace Rcpp;
 NumericVector sampleRcpp( NumericVector x,
                           int size,
                           bool replace,
-                          NumericVector prob = NumericVector::create()
+                          NumericVector prob
 ) {
   NumericVector ret = RcppArmadillo::sample(x, size, replace, prob);
   return ret;

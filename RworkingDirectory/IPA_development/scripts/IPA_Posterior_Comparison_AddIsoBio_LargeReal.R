@@ -21,6 +21,11 @@ source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_Mul
 source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_Compute_post.R')
 source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_ADD_ISO_BIO_R.R')
 
+# source when solving posterior rcpp slow
+Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_GS_ADD_ISO_BIO_DEBUG.cpp')
+source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_ADD_ISO_BIO_R_DEBUG.R')
+source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_ADD_ISO_BIO_Rcpp_DEBUG.R')
+
 PeakML.Data <- PeakML.Read("/home/yuqiouyang/RworkingDirectory/IPA_development/data/allpeaks_filtered.peakml")
 
 ## These are for debug use
@@ -112,18 +117,18 @@ RT <- as.numeric(PosAllData[,"RTs"])[MassKept2]                       # filter o
 #                                                unknownPen=NULL, v = F)
 
 
-## Efficiency comparison:
+# Efficiency comparison:
 benchmark(replications = 1,
-          Posterior_R = ComputePosteriorR_Add_Iso_Bio(P=Prior_filtered,Add = Add,
+          Posterior_R = ComputePosteriorR_Add_Iso_Bio_Debug(P=Prior_filtered,Add = Add,
                                                       Iso = Iso_bin, RT = RT,
                                                       Bio = Bio,
-                                                      RTwin = 5, it =2000, burn = 1000,
+                                                      RTwin = 5, it =1100, burn = 100,
                                                       allSamp = F, delAdd =0.4,
                                                       delIso = 0.2, delBio =1, v = T),
-          Posterior_Rcpp = ComputePosteriorRcpp_Add_Iso_Bio(P=Prior_filtered,Add = Add,
+          Posterior_Rcpp = ComputePosteriorRcpp_Add_Iso_Bio_Debug(P=Prior_filtered,Add = Add,
                                                             Iso = Iso_bin, RT = RT,
                                                             Bio = Bio,
-                                                            RTwin = 5, it =2000, burn = 1000,
+                                                            RTwin = 5, it =1100, burn = 100,
                                                             allSamp = F, delAdd =0.4,
                                                             delIso = 0.2, delBio =1, v = T),
           columns = c('test','elapsed','relative','replications'),
@@ -132,6 +137,28 @@ benchmark(replications = 1,
 
 
 
+# record running time:
+
+system.time({ComputePosteriorR_Add_Iso_Bio(P=Prior_filtered,Add = Add,
+                                           Iso = Iso_bin, RT = RT,
+                                           Bio = Bio,
+                                           RTwin = 5, it =1100, burn = 100,
+                                           allSamp = F, delAdd =0.4,
+                                           delIso = 0.2, delBio =1, v = T)})
+
+system.time({ComputePosteriorRcpp_Add_Iso_Bio(P=Prior_filtered,Add = Add,
+                                                    Iso = Iso_bin, RT = RT,
+                                                    Bio = Bio,
+                                                    RTwin = 5, it =1100, burn = 100,
+                                                    allSamp = F, delAdd =0.4,
+                                                    delIso = 0.2, delBio =1, v = T)})
+
+system.time({ComputePosteriorRcpp_Add_Iso_Bio_Debug(P=Prior_filtered,Add = Add,
+                                              Iso = Iso_bin, RT = RT,
+                                              Bio = Bio,
+                                              RTwin = 5, it =1100, burn = 100,
+                                              allSamp = F, delAdd =0.4,
+                                              delIso = 0.2, delBio =1, v = T)})
 
 
 # test_row = nrow(Prior_filtered)
