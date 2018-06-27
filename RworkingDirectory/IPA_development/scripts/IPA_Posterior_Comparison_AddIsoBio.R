@@ -57,12 +57,67 @@ for(i in 1:100){
 boxplot(tmp)
 
 
-benchmark(replications = 10,
+benchmark(replications = 1,
           samplerR = ComputePosteriorR_Add_Iso_Bio_Debug(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix),
           samplerRcpp = ComputePosteriorRcpp_Add_Iso_Bio_Debug(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix),
           columns = c('test','elapsed','relative','replications'),
           order = c('relative'),
           relative = 'elapsed')
+
+
+samplerRcpp = ComputePosteriorRcpp_Add_Iso_Bio_Debug(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix, it = 1, burn = 0)
+
+
+
+
+
+
+
+
+
+
+
+
+
+# relation of dimensionality with efficiency test:
+Add2 <- matrix(sample(0:1,1000*1000, replace=TRUE),1000,1000)
+Iso2 <- matrix(sample(0:1,1000*1000, replace=TRUE),1000,1000)
+Bio2 <- matrix(sample(0:1,1000*1000, replace=TRUE),1000,1000)
+Add2[lower.tri(Add2)] <- t(Add2)[lower.tri(Add2)]
+Iso2[lower.tri(Iso2)] <- t(Iso2)[lower.tri(Iso2)]
+Bio2[lower.tri(Bio2)] <- t(Bio2)[lower.tri(Bio2)]
+m <- matrix(sample(0:10,100*1000, replace=TRUE),100,1000)
+Prior2 <- m/rowSums(m)[row(m)]
+RTs2 <- c(sample(40:160,100,replace=TRUE))
+
+benchmark(replications = 1,
+          samplerR = ComputePosteriorR_Add_Iso_Bio_Debug(P = Prior2, Add = Add2, Iso = Iso2, Bio = Bio2, RT = RTs2,relId = rel.id, RTwin=5),
+          samplerRcpp = ComputePosteriorRcpp_Add_Iso_Bio_Debug(P = Prior2, Add = Add2, Iso = Iso2, Bio = Bio2, RT = RTs2,relId = rel.id, RTwin=5),
+          columns = c('test','elapsed','relative','replications'),
+          order = c('relative'),
+          relative = 'elapsed')
+
+
+benchmark(replications = 1,
+          samplerR = ComputePosteriorR_Add_Iso_Bio_Debug(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix),
+          samplerRcpp = ComputePosteriorRcpp_Add_Iso_Bio_Debug(P = Prior, Add = adducts, Iso = isotopes, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix),
+          columns = c('test','elapsed','relative','replications'),
+          order = c('relative'),
+          relative = 'elapsed')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

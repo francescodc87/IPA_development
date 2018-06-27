@@ -119,13 +119,13 @@ RT <- as.numeric(PosAllData[,"RTs"])[MassKept2]                       # filter o
 
 # Efficiency comparison:
 benchmark(replications = 1,
-          Posterior_R = ComputePosteriorR_Add_Iso_Bio_Debug(P=Prior_filtered,Add = Add,
+          Posterior_R = ComputePosteriorR_Add_Iso_Bio(P=Prior_filtered,Add = Add,
                                                       Iso = Iso_bin, RT = RT,
                                                       Bio = Bio,
                                                       RTwin = 5, it =1100, burn = 100,
                                                       allSamp = F, delAdd =0.4,
                                                       delIso = 0.2, delBio =1, v = T),
-          Posterior_Rcpp = ComputePosteriorRcpp_Add_Iso_Bio_Debug(P=Prior_filtered,Add = Add,
+          Posterior_Rcpp = ComputePosteriorRcpp_Add_Iso_Bio(P=Prior_filtered,Add = Add,
                                                             Iso = Iso_bin, RT = RT,
                                                             Bio = Bio,
                                                             RTwin = 5, it =1100, burn = 100,
@@ -159,6 +159,14 @@ system.time({ComputePosteriorRcpp_Add_Iso_Bio_Debug(P=Prior_filtered,Add = Add,
                                               RTwin = 5, it =1100, burn = 100,
                                               allSamp = F, delAdd =0.4,
                                               delIso = 0.2, delBio =1, v = T)})
+
+
+
+
+
+
+
+
 
 
 # test_row = nrow(Prior_filtered)

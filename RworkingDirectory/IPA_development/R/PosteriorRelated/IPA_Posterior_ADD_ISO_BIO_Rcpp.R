@@ -72,11 +72,8 @@
   # Bio[sampcomp,]: select specific rows, all columns from Bio where row number indicates the compounds related to all the masses (referred from sampling) 
   potBio <-apply(Bio[sampcomp,],2,sum)
   
-
   post <- GibbsSampling(remIdx,
                         sampcomp,
-                        potAdd,
-                        potIso,
                         potBio,
                         as.matrix(Add),
                         as.matrix(Iso),
