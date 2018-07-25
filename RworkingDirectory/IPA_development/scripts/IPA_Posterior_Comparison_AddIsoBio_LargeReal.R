@@ -8,23 +8,21 @@ mzmatch.init(version.1 = F)
 load("~/RworkingDirectory/IPA_development/data/DBs_all_compounds_only1entry.Rdata")  ##database
 load("~/RworkingDirectory/IPA_development/data/POSPriors_oneEntry.Rdata")            ##Priors
 
-source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_Checking_RT.R')
-source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_Checking_relID.R')
-source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_Checking_corr.R')
+source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_Checking_RT.R')
+source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_Checking_relID.R')
+source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_Checking_corr.R')
 
-Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_Sample_Rcpp.cpp')
-Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_GS_ADD_ISO_BIO.cpp')   #'GS' = 'GibbsSampling'
-source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_Multsample_Rcpp.R')
-source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_ADD_ISO_BIO_Rcpp.R')
+Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_Sample_Rcpp.cpp')
+Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_GS_NoPot.cpp')   #'GS' = 'GibbsSampling'
+source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_Multsample_Rcpp.R')
+source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_ADD_ISO_BIO_NoPot_Rcpp.R')
 
-source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_Multsample_R.R')
-source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_Compute_post.R')
-source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_ADD_ISO_BIO_R.R')
+source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_Multsample_R.R')
+source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_Compute_post.R')
+source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_ADD_ISO_BIO_R.R')
 
-# source when solving posterior rcpp slow
-Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_GS_ADD_ISO_BIO_DEBUG.cpp')
-source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_ADD_ISO_BIO_R_DEBUG.R')
-source('~/RworkingDirectory/IPA_development/R/PosteriorRelated/IPA_Posterior_ADD_ISO_BIO_Rcpp_DEBUG.R')
+source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_ADD_ISO_BIO_INT_NoPot_Rcpp.R')
+Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_GS_INT_NoPot.cpp')   #'GS' = 'GibbsSampling'
 
 PeakML.Data <- PeakML.Read("/home/yuqiouyang/RworkingDirectory/IPA_development/data/allpeaks_filtered.peakml")
 
@@ -83,9 +81,8 @@ Iso_bin[Iso_bin>0] <- 1
 
 RT <- as.numeric(PosAllData[,"RTs"])[MassKept2]                       # filter out those masses 100% assigned with unknow
 
-## Intensities of masses: e.g, for one mass, the intensity is the maximum value of the mass being measured in G groups 
-## However, no intensity in this script file
-# Int <- as.numeric(apply(Pos.All.data[,3:40],1, max, na.rm=T)[MassKept2])
+# Intensities of masses: e.g, for one mass, the intensity is the maximum value of the mass being measured in G groups
+Int <- as.numeric(apply(PosAllData[,3:40],1, max, na.rm=T)[MassKept2])
 
 
 
@@ -118,47 +115,80 @@ RT <- as.numeric(PosAllData[,"RTs"])[MassKept2]                       # filter o
 
 
 # Efficiency comparison:
-benchmark(replications = 1,
-          Posterior_R = ComputePosteriorR_Add_Iso_Bio(P=Prior_filtered,Add = Add,
-                                                      Iso = Iso_bin, RT = RT,
-                                                      Bio = Bio,
-                                                      RTwin = 5, it =1100, burn = 100,
-                                                      allSamp = F, delAdd =0.4,
-                                                      delIso = 0.2, delBio =1, v = T),
-          Posterior_Rcpp = ComputePosteriorRcpp_Add_Iso_Bio(P=Prior_filtered,Add = Add,
-                                                            Iso = Iso_bin, RT = RT,
-                                                            Bio = Bio,
-                                                            RTwin = 5, it =1100, burn = 100,
-                                                            allSamp = F, delAdd =0.4,
-                                                            delIso = 0.2, delBio =1, v = T),
-          columns = c('test','elapsed','relative','replications'),
-          order = c('relative'),
-          relative = 'elapsed')
+# benchmark(replications = 1,
+#           Posterior_R = ComputePosteriorR_Add_Iso_Bio(P=Prior_filtered,Add = Add,
+#                                                       Iso = Iso_bin, RT = RT,
+#                                                       Bio = Bio,
+#                                                       RTwin = 5, it =1100, burn = 100,
+#                                                       allSamp = F, delAdd =0.4,
+#                                                       delIso = 0.2, delBio =1, v = T),
+#           Posterior_Rcpp = ComputePosteriorRcpp_Add_Iso_Bio(P=Prior_filtered,Add = Add,
+#                                                             Iso = Iso_bin, RT = RT,
+#                                                             Bio = Bio,
+#                                                             RTwin = 5, it =1100, burn = 100,
+#                                                             allSamp = F, delAdd =0.4,
+#                                                             delIso = 0.2, delBio =1, v = T),
+#           columns = c('test','elapsed','relative','replications'),
+#           order = c('relative'),
+#           relative = 'elapsed')
 
 
 
 # record running time:
+# system.time({ComputePosteriorR_Add_Iso_Bio(P=Prior_filtered,Add = Add,
+#                                            Iso = Iso_bin, RT = RT,
+#                                            Bio = Bio,
+#                                            RTwin = 5, it =1100, burn = 100,
+#                                            allSamp = F, delAdd =0.4,
+#                                            delIso = 0.2, delBio =1, v = T)})
+# 
+# system.time({ComputePosteriorRcpp_Add_Iso_Bio(P=Prior_filtered,Add = Add,
+#                                                     Iso = Iso_bin, RT = RT,
+#                                                     Bio = Bio,
+#                                                     RTwin = 5, it =1100, burn = 100,
+#                                                     allSamp = F, delAdd =0.4,
+#                                                     delIso = 0.2, delBio =1, v = T)})
 
-system.time({ComputePosteriorR_Add_Iso_Bio(P=Prior_filtered,Add = Add,
-                                           Iso = Iso_bin, RT = RT,
-                                           Bio = Bio,
+
+
+
+
+
+
+
+
+
+
+# Profile
+# "ComputePosteriorRcpp_Add_Iso_Bio_Int_NoPot" <- function( P, Add, Iso, Bio, Int,
+#                                                           RT=NULL, relId=NULL,
+#                                                           corrMat=NULL,  RTwin=3,
+#                                                           corrThld=.80,it=1100, 
+#                                                           burn=100, delAdd=.5, delIso=.5,
+#                                                           delBio=1, allSamp=F,
+#                                                           unknownPen=NULL, ratioToll=0.8, v = F)
+
+
+
+ComputePosteriorRcpp_Add_Iso_Bio_Int_NoPot(P=Prior_filtered,Add = Add,
+                                           Iso = Iso, RT = RT,
+                                           Bio = Bio, Int = Int,
                                            RTwin = 5, it =1100, burn = 100,
                                            allSamp = F, delAdd =0.4,
-                                           delIso = 0.2, delBio =1, v = T)})
+                                           delIso = 0.2, delBio =1, v = T)
 
-system.time({ComputePosteriorRcpp_Add_Iso_Bio(P=Prior_filtered,Add = Add,
-                                                    Iso = Iso_bin, RT = RT,
-                                                    Bio = Bio,
-                                                    RTwin = 5, it =1100, burn = 100,
-                                                    allSamp = F, delAdd =0.4,
-                                                    delIso = 0.2, delBio =1, v = T)})
 
-system.time({ComputePosteriorRcpp_Add_Iso_Bio_Debug(P=Prior_filtered,Add = Add,
-                                              Iso = Iso_bin, RT = RT,
-                                              Bio = Bio,
-                                              RTwin = 5, it =1100, burn = 100,
-                                              allSamp = F, delAdd =0.4,
-                                              delIso = 0.2, delBio =1, v = T)})
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -182,11 +212,16 @@ system.time({ComputePosteriorRcpp_Add_Iso_Bio_Debug(P=Prior_filtered,Add = Add,
 
 
 
-
-
-
-
-
+#m<-2189
+#c<-1532
+# m_test <- matrix(sample(0:10,2189*1532, replace=TRUE),2189,1532)
+# Prior_test <- m_test/rowSums(m_test)[row(m_test)]
+# sampcomp_test <- apply(Prior_test,1,multsample)
+# thism_test <- 5
+# x <- matrix(Iso_test[sampcomp_test,],ncol = 1532)
+# y <- Int[thism_test]/Int
+# tmp <- x * y
+# 2189X1532 * 1X2189
 
 
 

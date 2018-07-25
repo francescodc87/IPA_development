@@ -4,8 +4,8 @@ rm(list = ls())
 library(mzmatch.R)
 mzmatch.init(version.1 = F)
 load("~/RworkingDirectory/IPA_development/data/DBs_all_compounds_only1entry.Rdata")
-source('~/RworkingDirectory/IPA_development/R/PriorRelated/IPA_Massbased_Priors_R.R')
-Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/R/PriorRelated/IPA_Massbased_Priors_NoRT_Rcpp.cpp')
+source('~/RworkingDirectory/IPA_development/class/PriorRelated/IPA_Massbased_Priors_R.R')
+Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/class/PriorRelated/IPA_Massbased_Priors_NoRT_Rcpp.cpp')
 PeakML.Data <- PeakML.Read("/home/yuqiouyang/RworkingDirectory/IPA_development/data/allpeaks_filtered.peakml")
 
 
