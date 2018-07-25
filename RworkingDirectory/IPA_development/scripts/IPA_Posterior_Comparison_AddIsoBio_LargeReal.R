@@ -154,11 +154,18 @@ Int <- as.numeric(apply(PosAllData[,3:40],1, max, na.rm=T)[MassKept2])
 
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> a94fb0c2a142d258bb253d79559f22b40ae89587
 
 
 
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> a94fb0c2a142d258bb253d79559f22b40ae89587
 # Profile
 # "ComputePosteriorRcpp_Add_Iso_Bio_Int_NoPot" <- function( P, Add, Iso, Bio, Int,
 #                                                           RT=NULL, relId=NULL,
@@ -168,23 +175,35 @@ Int <- as.numeric(apply(PosAllData[,3:40],1, max, na.rm=T)[MassKept2])
 #                                                           delBio=1, allSamp=F,
 #                                                           unknownPen=NULL, ratioToll=0.8, v = F)
 
+<<<<<<< HEAD
 # save(Prior_filtered,Add,Iso,RT,Bio,Int, file="~/RworkingDirectory/IPA_development/data/PosteriorEfficiencyTest_Rcpp_180718.Rdata")
+=======
+
+>>>>>>> a94fb0c2a142d258bb253d79559f22b40ae89587
 
 ComputePosteriorRcpp_Add_Iso_Bio_Int_NoPot(P=Prior_filtered,Add = Add,
                                            Iso = Iso, RT = RT,
                                            Bio = Bio, Int = Int,
+<<<<<<< HEAD
                                            RTwin = 5, it =1, burn = 0,
+=======
+                                           RTwin = 5, it =1100, burn = 100,
+>>>>>>> a94fb0c2a142d258bb253d79559f22b40ae89587
                                            allSamp = F, delAdd =0.4,
                                            delIso = 0.2, delBio =1, v = T)
 
 
 
+<<<<<<< HEAD
 # system.time({ComputePosteriorRcpp_Add_Iso_Bio_Int_NoPot(P=Prior_filtered,Add = Add,
 #                                                         Iso = Iso, RT = RT,
 #                                                         Bio = Bio, Int = Int,
 #                                                         RTwin = 5, it =1100, burn = 100,
 #                                                         allSamp = F, delAdd =0.4,
 #                                                         delIso = 0.2, delBio =1, v = T)})
+=======
+
+>>>>>>> a94fb0c2a142d258bb253d79559f22b40ae89587
 
 
 

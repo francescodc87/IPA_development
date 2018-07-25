@@ -31,8 +31,13 @@
   }
   
   
+<<<<<<< HEAD
   sampcomp <- apply(P,1,multsample)
   potBio <-apply(Bio[sampcomp, ], 2 ,sum)
+=======
+  # sampcomp <- apply(P,1,multsample)
+  # potBio <-apply(Bio[sampcomp,],2,sum)
+>>>>>>> a94fb0c2a142d258bb253d79559f22b40ae89587
   
   
   # List removal,
@@ -52,11 +57,17 @@
   # bool v
 
   post <- GibbsSampling_Int_NoPot(remIdx,
+<<<<<<< HEAD
                                   sampcomp,
                                   potBio,
                                   as.matrix(Add),
                                   as.matrix(Iso),
                                   as.matrix(Bio),
+=======
+                                  Add,
+                                  Iso,
+                                  Bio,
+>>>>>>> a94fb0c2a142d258bb253d79559f22b40ae89587
                                   Int,
                                   P,
                                   delAdd,
