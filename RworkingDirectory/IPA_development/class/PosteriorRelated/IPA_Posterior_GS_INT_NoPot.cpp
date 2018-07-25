@@ -1,19 +1,11 @@
 
 #include <RcppArmadilloExtensions/sample.h>
 #include <RcppArmadillo.h>
-<<<<<<< HEAD
 #include "/usr/include/valgrind/callgrind.h"
-=======
->>>>>>> a94fb0c2a142d258bb253d79559f22b40ae89587
 using namespace Rcpp;
 // [[Rcpp::depends(RcppArmadillo)]]
 
 
-
-<<<<<<< HEAD
-=======
-
->>>>>>> a94fb0c2a142d258bb253d79559f22b40ae89587
 NumericVector getRowsAndDoColsum(NumericMatrix mat, NumericVector rowIdices)
 {
   NumericVector sum(mat.ncol());
@@ -54,17 +46,10 @@ NumericVector sampleRcppUnExport( NumericVector x,
 }
 
 
-<<<<<<< HEAD
-arma::mat computePost(int itNum, 
-                      int massNum, 
-                      int compNum, 
-                      int burn, 
-=======
 arma::mat computePost(int itNum,
                       int massNum,
                       int compNum,
                       int burn,
->>>>>>> a94fb0c2a142d258bb253d79559f22b40ae89587
                       arma::mat M){
   int valid = itNum - burn;
   arma::mat  posterior_mat = arma::zeros<arma::mat>(massNum,compNum);
@@ -79,15 +64,7 @@ arma::mat computePost(int itNum,
     arma::rowvec posteriorPerMass = massSampCount_rvec / valid;
     posterior_mat.row(i) = posteriorPerMass;
   }
-<<<<<<< HEAD
-  
   return posterior_mat;
-  
-=======
-
-  return posterior_mat;
-
->>>>>>> a94fb0c2a142d258bb253d79559f22b40ae89587
 }
 
 NumericVector listEleIntoVec(List ls, int idx){
@@ -98,44 +75,22 @@ arma::uvec setDiff(arma::uvec x, arma::uvec y){
   arma::uvec& result = x;
   x = arma::unique(x);
   y = arma::unique(y);
-<<<<<<< HEAD
-  
-=======
-
->>>>>>> a94fb0c2a142d258bb253d79559f22b40ae89587
   for (size_t j = 0; j < y.n_elem; j++) {
     arma::uvec q1 = arma::find(x == y[j]);
     if (!q1.empty()) {
       result.shed_row(q1(0));
     }
   }
-<<<<<<< HEAD
-  
-=======
-
->>>>>>> a94fb0c2a142d258bb253d79559f22b40ae89587
   return result;
 }
 
 arma::mat computeIntRatio(arma::mat Int, arma::rowvec massRatios){
-<<<<<<< HEAD
-  
-=======
-
->>>>>>> a94fb0c2a142d258bb253d79559f22b40ae89587
   int rowNum = Int.n_rows;
   arma::sp_mat Int_spmat = arma::sp_mat(Int);
   arma::sp_mat::row_iterator start = Int_spmat.begin_row(0);  // start of column 1
   arma::sp_mat::row_iterator end = Int_spmat.end_row(rowNum - 1);    //   end of column 3
-<<<<<<< HEAD
-  
-  for(arma::sp_mat::row_iterator it = start; it != end; ++it)
-  { 
-=======
-
   for(arma::sp_mat::row_iterator it = start; it != end; ++it)
   {
->>>>>>> a94fb0c2a142d258bb253d79559f22b40ae89587
     int idx = it.row();
     double x = massRatios.at(idx);
     (*it) = (*it) * x;
@@ -143,8 +98,6 @@ arma::mat computeIntRatio(arma::mat Int, arma::rowvec massRatios){
   return arma::mat(Int_spmat);
 }
 
-<<<<<<< HEAD
-=======
 NumericVector spMatColSum(arma::sp_mat x, arma::uvec y){
   int rowNum = y.n_elem;
   int colNum = x.n_cols;
@@ -158,16 +111,10 @@ NumericVector spMatColSum(arma::sp_mat x, arma::uvec y){
   return result;
 }
 
->>>>>>> a94fb0c2a142d258bb253d79559f22b40ae89587
 // void printOutUvec(arma::uvec x){
 //   Rcout << "UVector" << std::endl;
 //   x.t().raw_print(std::cout);
 // }
-<<<<<<< HEAD
-// 
-=======
-//
->>>>>>> a94fb0c2a142d258bb253d79559f22b40ae89587
 // void printOutRvec(arma::rowvec x){
 //   Rcout << "RVector" << std::endl;
 //   x.raw_print(std::cout);
@@ -177,8 +124,6 @@ NumericVector spMatColSum(arma::sp_mat x, arma::uvec y){
 //     Rcout << "NumericVector, " << x.at(i) << std::endl;
 //   }
 // }
-
-<<<<<<< HEAD
 
 // [[Rcpp::export]]
 NumericMatrix GibbsSampling_Int_NoPot(  List removal,
@@ -510,5 +455,4 @@ NumericMatrix GibbsSampling_Int_NoPot(  List removal,
 //   // return allsampcomp;
 //   // }
 // }
->>>>>>> a94fb0c2a142d258bb253d79559f22b40ae89587
 
