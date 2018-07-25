@@ -105,7 +105,7 @@ arma::uvec setDiff(arma::uvec x, arma::uvec y){
 
 
 // [[Rcpp::export]]
-NumericMatrix GibbsSampling(        List removal,
+NumericMatrix GibbsSampling_NoPot(  List removal,
                                     NumericVector sampcomp,
                                     NumericVector potBio,
                                     NumericMatrix add,
@@ -154,16 +154,9 @@ NumericMatrix GibbsSampling(        List removal,
       }
       
       // counting adductrelations
-      // in R: p.add <- colSums(matrix(Add[sampcomp[-ind.rem[[thism]]],], ncol=Nc))
       arma::rowvec pAdd_rvec = sum(add_mat.rows(retainComp_uvec),0);
      
       // counting isotoperelations
-      // in R:
-      // tmp <- matrix(Iso[sampcomp[-ind.rem[[thism]]],],ncol = Nc)*(Int[thism]/Int[-ind.rem[[thism]]])
-      //   ind.ones <- which((tmp>=ratio.toll) & (tmp <=(1/ratio.toll))) 
-      //   tmp[ind.ones]<-1
-      // tmp[tmp!=1] <-0
-      // p.iso<-colSums(tmp)
       arma::rowvec pIso_rvec = sum(iso_mat.rows(retainComp_uvec),0);
       
       // counting biotransformations relations

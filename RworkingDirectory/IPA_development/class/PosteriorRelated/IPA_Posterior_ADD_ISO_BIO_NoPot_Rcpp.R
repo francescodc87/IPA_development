@@ -12,12 +12,12 @@
 # allSamp choose return value type
 # unknownPen penalty value
 
-"ComputePosteriorRcpp_Add_Iso_Bio" <- function(P, Add, Iso, Bio, RT=NULL, relId=NULL,
-                                      corrMat=NULL,  RTwin=3,
-                                      corrThld=.80, it=1100, 
-                                      burn=100, delAdd=.5, delIso=.5,
-                                      delBio=1, allSamp=F,
-                                      unknownPen=NULL, v = F){
+"ComputePosteriorRcpp_Add_Iso_Bio_NoPot" <- function(P, Add, Iso, Bio, RT=NULL, relId=NULL,
+                                                     corrMat=NULL,  RTwin=3,
+                                                     corrThld=.80, it=1100, 
+                                                     burn=100, delAdd=.5, delIso=.5,
+                                                     delBio=1, allSamp=F,
+                                                     unknownPen=NULL, v = F){
   
   # if function receives no RT, relId, corr.matrix input, throw exception
   if(is.null(RT) & is.null(relId) & is.null(corrMat)){
@@ -49,11 +49,6 @@
     })
   }
   
-  #return row number of adducts connections matrix
-  Nc <- nrow(Add)
-  #return row number of Prior probabilities matrix
-  M <- nrow(P)
-  
   #apply function multsampleRcpp over rows of prior probabilities matrix 
   #about function multsampleRcpp: doing sampling work
   #result: get a vector where each metabolite is assigned to a compound, e.g. sampcomp[x] = y indicates that mass of row x in matrix P 
@@ -61,31 +56,24 @@
   # sampcomp <- apply(P,1,multsampleRcpp)
   sampcomp <- apply(P,1,multsample)
 
-  
-  # apply(,2,sum) is doing column sum operation on Add[sampcomp,]
-  # Add[sampcomp,]: select specific rows, all columns from Add where row number indicates the compounds related to all the masses (referred from sampling)
-  potAdd <-apply(Add[sampcomp,],2,sum)
-  # apply(,2,sum) is doing column sum operation on Iso[sampcomp,]
-  # Iso[sampcomp,]: select specific rows, all columns from Iso where row number indicates the compounds related to all the masses (referred from sampling) 
-  potIso <-apply(Iso[sampcomp,],2,sum)
   # apply(,2,sum) is doing column sum operation on Bio[sampcomp,]
   # Bio[sampcomp,]: select specific rows, all columns from Bio where row number indicates the compounds related to all the masses (referred from sampling) 
   potBio <-apply(Bio[sampcomp,],2,sum)
   
-  post <- GibbsSampling(remIdx,
-                        sampcomp,
-                        potBio,
-                        as.matrix(Add),
-                        as.matrix(Iso),
-                        as.matrix(Bio),
-                        P,
-                        delAdd,
-                        delIso,
-                        delBio,
-                        it,
-                        burn,
-                        v
-                        )
+  post <- GibbsSampling_NoPot(remIdx,
+                              sampcomp,
+                              potBio,
+                              as.matrix(Add),
+                              as.matrix(Iso),
+                              as.matrix(Bio),
+                              P,
+                              delAdd,
+                              delIso,
+                              delBio,
+                              it,
+                              burn,
+                              v
+                            )
   return (post)
 
 }
