@@ -2,7 +2,7 @@ rm(list = ls())
 Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/class/UpdateRelated/IPA_Update_LargeReal.cpp')
 library(mzmatch.R)
 mzmatch.init(version.1 = F)
-PeakML.Data <- PeakML.Read("C:/Users/oyyqwhuiss/Documents/RworkingDirectory/IPA_development/data/allpeaks_filtered.peakml")
+PeakML.Data <- PeakML.Read("/home/yuqiouyang/RworkingDirectory/IPA_development/data/allpeaks_filtered.peakml")
 load("~/RworkingDirectory/IPA_development/data/DBs_all_compounds_only1entry.Rdata")
 load("~/RworkingDirectory/IPA_development/data/Post_real_oneEntry_ADD_ISO_BIO_Int_noPen2.Rdata")
 

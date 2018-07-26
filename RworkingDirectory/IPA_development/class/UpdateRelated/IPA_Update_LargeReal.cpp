@@ -205,6 +205,7 @@ int CompareToShuffleMainAdd(int oldMainAddFomu, NumericVector addFomu, NumericVe
   return result;
 }
 
+
 // void printOutRvec(arma::rowvec x){
 //   // Rcout << "UVector" << std::endl;
 //   for (int i = 0; i < x.n_elem; i++){

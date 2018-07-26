@@ -33,11 +33,9 @@ iso[9,8] <- 0.125
 iso_spMat <- as(iso, "dgCMatrix")
 
 add <- matrix(0, 10, 10)
-add[2,2] <- 1
 add[3,2] <- 1
 add[5,2] <- 1
 add[6,8] <- 1
-add[8,8] <- 1
 add[9,8] <- 1
 add_spMat <- as(add, "dgCMatrix")
 
