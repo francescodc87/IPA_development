@@ -11,10 +11,6 @@ post[3,2] <- 0.95
 post[4,5] <- 0.93
 post[5,8] <- 0.95
 post[6,9] <- 0.96
-post[2,4] <- 0.9
-post[3,4] <- 0.9
-post[4,7] <- 0.9
-post[5,7] <- 0.9
 post_spMat <- as(post, "dgCMatrix")
 
 iso <- matrix(0, 10, 10)
@@ -34,9 +30,13 @@ iso_spMat <- as(iso, "dgCMatrix")
 
 add <- matrix(0, 10, 10)
 add[3,2] <- 1
+add[2,3] <- 1
 add[5,2] <- 1
+add[2,5] <- 1
 add[6,8] <- 1
+add[8,6] <- 1
 add[9,8] <- 1
+add[8,9] <- 1
 add_spMat <- as(add, "dgCMatrix")
 
 bio <- matrix(0, 10, 10)
@@ -74,6 +74,7 @@ massRT <- c(50,75,100,150,200,250)
 obsFomuRT <- NULL
 obsRTfomu <- vector('numeric')
 recFomuRT <- NULL
+recRTfomu <- vector('numeric')
 recFomuRTdistr <- NULL
 recRTdistrFomu <- vector('numeric')
 
@@ -81,7 +82,8 @@ s_pkAdd <- 0.1
 s_pkComp <- 0.1
 s_ma <- 0.1
 s_iso <- 0.1
-threshold <- 0.9
+t_RT <- 49
+t_post <- 0.9
 
 
 
@@ -90,20 +92,20 @@ l <- UpdateMain(post_spMat, iso_spMat, add_spMat, bio_spMat, fomuCompId, pkFomu,
                 ma, massMZ, fomuMZ, obsMA, recMA, recMAdistr, 
                 massInt, obsIR, obsIRlFomu, obsIRrFomu, recIRdistr, recIRdistrLFomu, recIRdistrRFomu,
                 recMonoFomu, recMonoMainAddFomu, recMonoFomuWithInSameComp, recMITwithInSameComp, recCompMainAddFomu, recCompMonoFomu, recCompBioLink,
-                massRT, obsFomuRT, obsRTfomu, recFomuRT, recFomuRTdistr, recRTdistrFomu,
-                s_pkAdd, s_pkComp, s_ma, s_iso, threshold)
+                massRT, obsFomuRT, obsRTfomu, recFomuRT, recRTfomu, recFomuRTdistr, recRTdistrFomu,
+                s_pkAdd, s_pkComp, s_ma, s_iso, t_RT, t_post)
  
 massMZ_new <- c(39.9999,99.99,100.0002,50.00005,200.0004,400.0008)
 fomuMZ_new <- c(40,100,30,35,50,60,70,200,400,250)
 massInt_new <- c(252.5,100,25.25,101,202,50.5)
 massRT_new <- c(40,75,80,200,150,200)
+t_RT <- 39
 l_new <- UpdateMain(post_spMat, l$model$iso, l$model$add, l$model$bio, fomuCompId, l$model$pkFomu, l$model$pkComp, 
                     l$model$ma, massMZ_new, fomuMZ_new, l$other$ma$obsMA, l$record$ma$recMA, l$record$ma$recMAdistr, 
                     massInt_new, l$other$iso$obsIR, l$other$iso$obsIRlFomu,l$other$iso$obsIRrFomu, l$record$iso$recIRdistr, l$record$iso$recIRdistrLFomu, l$record$iso$recIRdistrRFomu,
                     l$record$add$recMonoFomu, l$record$add$recMonoMainAddFomu, l$record$add$recMonoFomuWithInSameComp, l$record$add$recMITwithInSameComp, l$record$bio$recCompMainAddFomu, l$record$bio$recCompMonoFomu, l$record$bio$recCompBioLink,
-                    massRT_new, l$other$rt$obsFomuRT, l$other$rt$obsRTfomu, l$record$rt$recFomuRT, l$record$rt$recFomuRTdistr, l$record$rt$recRTdistrFomu,
-                    s_pkAdd, s_pkComp, s_ma, s_iso, threshold)
-
+                    massRT_new, l$other$rt$obsFomuRT, l$other$rt$obsRTfomu, l$record$rt$recFomuRT, l$record$rt$recRTfomu, l$record$rt$recFomuRTdistr, l$record$rt$recRTdistrFomu,
+                    s_pkAdd, s_pkComp, s_ma, s_iso, t_RT, t_post)
 
 # List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
 #                 arma::sp_mat iso_spMat,                 // iso matrix
@@ -126,24 +128,26 @@ l_new <- UpdateMain(post_spMat, l$model$iso, l$model$add, l$model$bio, fomuCompI
 #                 NumericVector recIRdistrLFomu,          // record of all the left fomula numbers of all recorded distributions
 #                 NumericVector recIRdistrRFomu,          // record of all the right fomula numbers of all recorded distributions
 #                 NumericVector recMonoFomu,              // record of all the fomula numbers of all monoisotopic adducts
-#                 NumericVector recMonoMainAddFomu,       // record of all the fomula numbers of all monoisotopic adduct's main adducts 
+#                 NumericVector recMonoMainAddFomu,       // record of all the fomula numbers of all monoisotopic adduct's main adducts
 #                 List recMonoFomuWithInSameComp,         // the fomula numbers of all monoisotopic adducts of each monoisotopic compound (share the same compound)
 #                 List recMITwithInSameComp,              // the most intense time values of monoisotopic adducts of each monoisotopic compound (share the same compound)
-#                 NumericVector recCompMainAddFomu,       // fomula numbers of the main adducts of compounds  
+#                 NumericVector recCompMainAddFomu,       // fomula numbers of the main adducts of compounds
 #                 List recCompMonoFomu,                   // the monoisotopic adduct fomula numbers of compounds
 #                 List recCompBioLink,                    // the compound numbers of compounds (linked with biochemical reactions)
 #                 NumericVector massRT,                   // mass retention time values of all the masses
 #                 List obsFomuRT,                         // storage of observed retention time values of fomulas in this update time
 #                 NumericVector obsRTfomu,                // the fomula numbers of the observed retention time in this update time
 #                 List recFomuRT,                         // record all observed retention time values of fomulas
+#                 NumericVector recRTfomu,                // the fomula numbers of the recorded retention time values
 #                 List recFomuRTdistr,                    // record all the distributions of retention time values of fomulas
 #                 NumericVector recRTdistrFomu,           // the fomula numbers of the recorded retention time distributions
 #                 double s_pkAdd,                         // update scale(speed) for pkFomu
 #                 double s_pkComp,                        // update scale(speed) for pkComp
 #                 double s_ma,                            // update scale for ma (0< <=1)
 #                 double s_iso,                           // update scale for iso (0< <=1)
-#                 double threshold                        // threshold used to filter posterior
-# 
+#                 double t_RT,                            // threshold used to count iso and add connection when solving overlapped assignments automatically
+#                 double t_post                           // threshold used to filter posterior
+#                 
 # )
 
 
