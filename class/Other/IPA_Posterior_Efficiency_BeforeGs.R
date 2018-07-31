@@ -1,4 +1,4 @@
-"ComputePosteriorRcpp_Add_Iso_Bio_Int_NoPot" <- function( P, Add, Iso, Bio, Int,
+"Efficiency_PosteriorRcpp_Add_Iso_Bio_Int_NoPot" <- function( P, Add, Iso, Bio, Int,
                                                           RT=NULL, relId=NULL,
                                                           corrMat=NULL,  RTwin=3,
                                                           corrThld=.80,it=1100, 
@@ -29,20 +29,28 @@
       CheckingCorr(corrMat[,counter],counter, corrThld)       # get a vector of which the elements are [indexes] in corrMat[,counter] which corrMat[,counter][index] < corr.thr
     })
   }
+  
+  
+  
+  # sampcomp <- apply(P,1,multsample)
+  # potBio <-apply(Bio[sampcomp,],2,sum)
 
-  post <- GibbsSampling_Int_NoPot(remIdx,
-                                  as.matrix(Add),
-                                  as.matrix(Iso),
-                                  as.matrix(Bio),
-                                  Int,
-                                  P,
-                                  delAdd,
-                                  delIso,
-                                  delBio,
-                                  ratioToll,
-                                  it,
-                                  burn,
-                                  v
+  
+  
+  post <- GibbsSampling_Efficiency(remIdx,
+                                   Add,
+                                   Iso,
+                                   Bio,
+                                   Int,
+                                   P,
+                                   delAdd,
+                                   delIso,
+                                   delBio,
+                                   ratioToll,
+                                   it,
+                                   burn,
+                                   v
   )
   return (post)
+  
 }

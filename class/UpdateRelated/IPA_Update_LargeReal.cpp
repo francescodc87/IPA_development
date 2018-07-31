@@ -425,16 +425,16 @@ List UpdateMain_LargeReal(arma::sp_mat post_spMat,                // posterior m
         // rule I: prefer assignments in which the masses show higher intensities
         double maxInt = arma::max(dupSubMassIntSet_rvec);
         arma::uvec dupSubMaxIntIdx = arma::find(dupSubMassIntSet_rvec == maxInt);
-        dupSubScore_rvec.elem(dupSubMaxIntIdx) += 10;       // score add
+        dupSubScore_rvec.elem(dupSubMaxIntIdx) += 4;       // score add
         
         // rule II: prefer assignments in which detecting lower massaccuracies
         double minMA = arma::min(dupSubMAset_rvec);
         arma::uvec dupSubMinMAidx = arma::find(dupSubMAset_rvec == minMA);
-        dupSubScore_rvec.elem(dupSubMinMAidx) += 5;       // score add
+        dupSubScore_rvec.elem(dupSubMinMAidx) += 3;       // score add
         
         // rule III: prefer assignments in which more connections in formula levels are found based on the mass retention times
         arma::uvec dupSubLinkWinner = SelectLinkWinner(dupSubIsoLink,dupSubAddLink);
-        dupSubScore_rvec.elem(dupSubLinkWinner) += 3;    // score add
+        dupSubScore_rvec.elem(dupSubLinkWinner) += 2;    // score add
         
         // after thresholded by three rules, perform automatic selection of mass in the subvec of duplicate assignments by the final score
         // dupSubScore_rvec, dupSubFomuSet_rvec, dupSubMassSet_rvec, dupFomuIdx_uvec
