@@ -8,7 +8,7 @@ library(data.table)
 # here to connect with database on local server
 graph = startGraph("http://localhost:7474/db/data/", username = "neo4j", password = "oyyq6997")
 
-## here is some initial change on database, !!!no need any more!!!
+## here is some initial change on database, !!!no need any more, just ignore them, don't delete them!!!
 ## delete the nodes in Chemical with property formula is empty or NA
 ## delete the nodes in Chemical with no monoisotopic mass value
 # query = "MATCH (n:Chemical) WHERE not exists(n.formula) DETACH DELETE n"
@@ -19,7 +19,7 @@ graph = startGraph("http://localhost:7474/db/data/", username = "neo4j", passwor
 # cypher(graph, query)
 
 
-# deal with dbId and id property in Chemical node
+## deal with dbId and id property in Chemical node
 # query = "MATCH (n:Chemical) SET n.dbId = n.id REMOVE n.id"
 # cypher(graph, query)
 # query = "MATCH (n:Chemical) SET n.id = id(n) + 1"
@@ -37,7 +37,7 @@ graph = startGraph("http://localhost:7474/db/data/", username = "neo4j", passwor
 # cypher(graph, query)
 
 # 2. link compounds to adducts & isotopes, add properties for adduct node
-# get chemical Information split in multi-times for memory efficiency
+# get chemical Information split in multi-times for memory efficiency (no need anymore, populate once and all)
 # query = "MATCH (n:Chemical) RETURN n.id AS id, n.formula AS formula, n.monoisotopic_mass as mz ORDER BY n.id limit 100000"
 # query = "MATCH (n:Chemical) RETURN n.id AS id, n.formula AS formula, n.monoisotopic_mass as mz ORDER BY n.id skip 100000 limit 100000"
 # query = "MATCH (n:Chemical) RETURN n.id AS id, n.formula AS formula, n.monoisotopic_mass as mz ORDER BY n.id skip 200000 limit 100000"
@@ -55,12 +55,12 @@ rm(chemInfo)
 data("adducts")
 data("isotopes")
 
-# first time filter about formula NA
-validFomuNAIdx <- chemInfoTable[formula != "NA", which = TRUE]
-chemInfoTable <- chemInfoTable[validFomuNAIdx,]
-# second time filter about mono mass value
+# first time filter about mono mass value
 validMassNAIdx <- chemInfoTable[!is.na(mz), which = TRUE]
 chemInfoTable <- chemInfoTable[validMassNAIdx,]
+# second time filter about formula (most of the time since first filter this should be useless)
+validFomuNAIdx <- chemInfoTable[!is.na(formula), which = TRUE]
+chemInfoTable <- chemInfoTable[validFomuNAIdx,]
 # third time filter about formula valid to isopattern
 checkResult <- check_chemform(isotopes,chemInfoTable$formula)
 validFomuIdx <- which(checkResult[,"warning"] == FALSE)  # should filter out formula "NA" and empty
@@ -72,6 +72,7 @@ rm(validMassNAIdx)
 rm(checkResult)
 rm(validFomuIdx)
 
+# initial the adduct type and isotope rank we want
 addType <- c("M+H","M+Na","M+2H","M-H","M+Cl","M-2H")
 addRowIdx <- vector('numeric')
 isoPickRule <- c(2,3,4)
@@ -81,34 +82,30 @@ for(i in 1: length(addType)){
 }
 addId <- 0
 v <- 0
-addTable = data.table(id = rep(0, 2e7), name = rep("",2e7), formula = rep("",2e7), type = rep("", 2e7), mz = rep(0, 2e7),
+addTable = data.table(id = rep(0, 2e7), name = rep("",2e7), formula = rep("",2e7), type = rep("", 2e7), charge = rep(0, 2e7), mz = rep(0, 2e7),
                       mainAddOf = rep(0,2e7), isPOS = rep(-1,2e7), POSorNEGof = rep(0,2e7), isoOf = rep(0,2e7), isoRank = rep(0,2e7), initIR = rep(0,2e7))
 for(i in 1:chemNum){
   # for each compound, get all the monoisotopic adduct firstly
-  eachChemFomu <- chemInfoTable$formula[i]
-  compId <- chemInfoTable$id[i]
-  for(j in 1:length(addRowIdx)){
-    # cat("1")
+  eachChemFomu <- chemInfoTable$formula[i]         # compound/chemical formula
+  compId <- chemInfoTable$id[i]                    # compound unique id in database
+  for(j in 1:length(addRowIdx)){                   # for each adduct type, we choose 6 adduct types here as shown before
     eachAddFomu <- ""
     idx <- addRowIdx[j]
-    if(j == 5){
+    if(j == 5){      # for M+Cl
       eachAddFomu <- mergeform(eachChemFomu, adducts[idx, "Formula_add"])     # the formula of the adduct
-      flagPOS <- 0  # deal with has_pos relation
-    }else if(adducts[idx, "Ion_mode"] == "positive"){
-      # cat("1.2")
+      flagPOS <- 0   # deal with has_pos relation
+    }else if(adducts[idx, "Ion_mode"] == "positive"){                         # for all positive mode adduct
       eachAddFomu <- mergeform(eachChemFomu, adducts[idx, "Formula_add"])     # the formula of the adduct
       flagPOS <- 1   # deal with has_pos relation
-    }else{
-      # cat("1.3")
-      Hidx <- gregexpr(pattern ='H',eachChemFomu)[[1]][1]
+    }else{           # for all the "-" structure negative mode adduct, here is "M-H" and "M-2H"            
+      Hidx <- gregexpr(pattern ='H',eachChemFomu)[[1]][1]                     # we need to make sure there is "H" in the formula
       if(Hidx >= 1){
-        Hnum <- substr(eachChemFomu, start = Hidx + 1, stop = Hidx + 1)
-        if(Hnum != "e" && Hnum != "o" && Hnum != "f" && Hnum != "g"){
+        Hnum <- substr(eachChemFomu, start = Hidx + 1, stop = Hidx + 1)       # get the number of "H" atoms in the formula
+        if(Hnum != "e" && Hnum != "o" && Hnum != "f" && Hnum != "g"){         # while it may be "He", "Ho" etc, whic is tricky, need filter out
           Hnum <- as.integer(Hnum) 
-          # cat("Hnum: ",Hnum)
-          if(Hnum >= as.integer(substr(adducts[idx, "Formula_ded"], start = 2, stop = 2))){
-            eachAddFomu <- subform(eachChemFomu, adducts[idx, "Formula_ded"])       # the formula of the adduct
-            if(eachAddFomu == "NANA"){
+          if(Hnum >= as.integer(substr(adducts[idx, "Formula_ded"], start = 2, stop = 2))){   # if there are enough "H" atoms for us to abstract
+            eachAddFomu <- subform(eachChemFomu, adducts[idx, "Formula_ded"])                 # the formula of the adduct
+            if(eachAddFomu == "NANA"){ # sometimes the formula is "H2", so after "M-2H" the result is"NANA"
               eachAddFomu = ""
             }
             flagPOS <- 0  # deal with has_neg relation
@@ -116,13 +113,12 @@ for(i in 1:chemNum){
         }
       }
     }
-    # cat("1.5")
     if(eachAddFomu != ""){
       addId <- addId + 1
       eachAddMass <- chemInfoTable$mz[i] + adducts[idx, "Mass"] # the mass of the adduct
-      eachAddCharge <- adducts[idx, "Charge"]           # the charge of the adduct
+      eachAddCharge <- adducts[idx, "Charge"]                   # the charge of the adduct
       eachAddMZ <- eachAddMass / abs(eachAddCharge)             # the mz of the adduct
-      eachAddType <- addType[j]                            # the type of the adduct
+      eachAddType <- addType[j]                                 # the type of the adduct
       if(j == 1 || j == 4){ # deal with has_mainAdd relation
         mainAddComp <- compId
       }else{
@@ -130,30 +126,20 @@ for(i in 1:chemNum){
       }
       eachAddName <- eachAddFomu
       eachAddId <- addId                                # the id of the adduct
-      # cat("1.8")
-      addTable[addId, c("id","name","formula","type","mz","mainAddOf","isPOS","POSorNEGof") := .(eachAddId, eachAddName, eachAddFomu, eachAddType, eachAddMZ, mainAddComp, flagPOS, compId)]
-      # addTable[addId,] <- list("id" = eachAddId, "name" = eachAddName, "formula" = eachAddFomu, "type" = eachAddType, "mz" = eachAddMZ, 
-      #                          "mainAddOf" = mainAddOf, "isPOS" = isPOS, "POSorNEGof" = compId, "isoOf" = 0, "isoRank" = 0, "initIR" = 0)
-      # cat("2")
+      addTable[addId, c("id","name","formula","type","charge","mz","mainAddOf","isPOS","POSorNEGof") := .(eachAddId, eachAddName, eachAddFomu, eachAddType, eachAddCharge, eachAddMZ, mainAddComp, flagPOS, compId)]
       # here start to search for its isotopes
       isoThrld <- 0.1
       allIsoInfo <- (isopattern(isotopes, eachAddFomu, threshold = isoThrld, charge = eachAddCharge, verbose = FALSE))
       allIsoInfo <- allIsoInfo[[1]]
       if(allIsoInfo[1] != "error"){
         int <- allIsoInfo[, "abundance"]
-        while ((length(int) < 4) && (isoThrld != 0)) {
-          isoThrld <- isoThrld / 2
-          allIsoInfo <- (isopattern(isotopes, eachAddFomu, threshold = isoThrld, charge = eachAddCharge, verbose = FALSE))
-          allIsoInfo <- allIsoInfo[[1]]
-          int <- allIsoInfo[, "abundance"]
-        }
-        if(length(int) >= 4){
-          intRank <- rank(-int)
-          for (k in 1:length(isoPickRule)){
-            # cat("3")
+        intRank <- rank(-int)
+        for (k in 1:length(isoPickRule)){  # start to search for isotopes
+          # cat("3")
+          rk <- isoPickRule[k] 
+          isoIdx <- which(intRank == rk)
+          if(length(isoIdx) != 0){
             addId <- addId + 1
-            rk <- isoPickRule[k] 
-            isoIdx <- which(intRank == rk)
             eachIsoMZ <- allIsoInfo[isoIdx, "m/z"]              # mz of the isotope
             eachIsoIR <- 100 / allIsoInfo[isoIdx, "abundance"]  # intensity ratio: calculation: monoisotope intensity / its isotope's intensity
             l <-  ncol(allIsoInfo)
@@ -175,15 +161,13 @@ for(i in 1:chemNum){
             eachIsoName <- eachIsoFomu                                            # name of the isotope
             eachIsoId <- addId                                                    # id of the isotope
             eachIsoRank <- rk - 1                                                 # rank of the isotope
-            addTable[addId, c("id","name","formula","type","mz","isPOS","POSorNEGof", "isoOf", "isoRank", "initIR") := .(eachIsoId, eachIsoName, eachIsoFomu, eachAddType, eachIsoMZ, flagPOS, compId, eachAddId, eachIsoRank, eachIsoIR)]
-            # addTable[addId,] <- list("id" = eachIsoId, "name" = eachIsoName, "formula" = eachIsoFomu, "type" = eachAddType, "mz" = eachIsoMZ, 
-            #                          "mainAddOf" = 0, "isPOS" = isPOS, "POSorNEGof" = compId, "isoOf" = eachAddId, "isoRank" = rk - 1, "initIR" = eachIsoIR)
-            # cat("4")
+            addTable[addId, c("id","name","formula","type","charge","mz","isPOS","POSorNEGof", "isoOf", "isoRank", "initIR") := .(eachIsoId, eachIsoName, eachIsoFomu, eachAddType, eachAddCharge, eachIsoMZ, flagPOS, compId, eachAddId, eachIsoRank, eachIsoIR)]
           }
         }
       }
     }
   }
+  # print some hint information, the metric is per thousand
   old_v <- v
   v <- (i * 1000) %/% chemNum
   if(old_v !=v){
