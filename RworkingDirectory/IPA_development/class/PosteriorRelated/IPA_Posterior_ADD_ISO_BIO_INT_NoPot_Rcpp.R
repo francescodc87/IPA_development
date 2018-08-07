@@ -3,8 +3,7 @@
                                                           corrMat=NULL,  RTwin=3,
                                                           corrThld=.80,it=1100, 
                                                           burn=100, delAdd=.5, delIso=.5,
-                                                          delBio=1, allSamp=F,
-                                                          unknownPen=NULL, ratioToll=0.8, v = F){
+                                                          delBio=1, ratioToll=0.8, log = F){
   if(is.null(RT) & is.null(relId) & is.null(corrMat)){
     cat("\n Missing RT, corrMat or relId")
     stop()
@@ -31,9 +30,9 @@
   }
 
   post <- GibbsSampling_Int_NoPot(remIdx,
-                                  as.matrix(Add),
-                                  as.matrix(Iso),
-                                  as.matrix(Bio),
+                                  Add,
+                                  Iso,
+                                  Bio,
                                   Int,
                                   P,
                                   delAdd,
@@ -42,7 +41,7 @@
                                   ratioToll,
                                   it,
                                   burn,
-                                  v
+                                  log
   )
   return (post)
 }

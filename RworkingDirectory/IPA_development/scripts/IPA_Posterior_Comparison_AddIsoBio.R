@@ -28,13 +28,19 @@ idx <- which(isotopes < 50)
 isotopes[idx] <- 0
 Int = c(65,70,75,80,85,88,90,92,95)
 
+Prior <- as(Prior, "dgCMatrix")
+adducts <- as(adducts, "dgCMatrix")
+isotopes <- as(isotopes, "dgCMatrix")
+biotransforamtions <- as(biotransforamtions, "dgCMatrix")
+
 tmp <- NULL
 for(i in 1:100){
   postR <- ComputePosteriorR_Add_Iso_Bio_Int_NoPot(P = Prior, Add = adducts, Iso = isotopes, Int = Int, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix)
   postRcpp <- ComputePosteriorRcpp_Add_Iso_Bio_Int_NoPot(P = Prior, Add = adducts, Iso = isotopes, Int = Int, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix)
-  tmp <- rbind(tmp, as.vector(t(postR)-t(postRcpp)))
+  tmp <- rbind(tmp, as.vector(t(postR)-t(as.matrix(postRcpp))))
 }
 boxplot(tmp)
+
 
 benchmark(replications = 1,
           samplerR = ComputePosteriorR_Add_Iso_Bio_Int_NoPot(P = Prior, Add = adducts, Iso = isotopes, Int = Int, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix),

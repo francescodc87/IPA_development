@@ -98,18 +98,6 @@ l <- UpdateMain(post_spMat, iso_spMat, add_spMat, bio_spMat, fomuCompId, pkFomu,
                 recMonoFomu, recMonoMainAddFomu, recMonoFomuWithInSameComp, recMITwithInSameComp, recCompMainAddFomu, recCompMonoFomu, recCompBioLink,
                 massRT, obsFomuRT, obsRTfomu, recFomuRT, recRTfomu, recFomuRTdistr, recRTdistrFomu,
                 s_pkAdd, s_pkComp, s_ma, s_iso, w_int, w_ma, w_addLink, w_bioLink, t_RT, t_post)
- 
-massMZ_new <- c(39.9999,99.99,100.0002,50.00005,200.0004,400.0008)
-fomuMZ_new <- c(40,100,30,35,50,60,70,200,400,250)
-massInt_new <- c(252.5,100,25.25,101,202,50.5)
-massRT_new <- c(40,75,80,200,150,200)
-t_RT <- 39
-l_new <- UpdateMain(post_spMat, l$model$iso, l$model$add, l$model$bio, fomuCompId, l$model$pkFomu, l$model$pkComp, 
-                    l$model$ma, massMZ_new, fomuMZ_new, l$other$ma$obsMA, l$record$ma$recMA, l$record$ma$recMAdistr, 
-                    massInt_new, l$other$iso$obsIR, l$other$iso$obsIRlFomu,l$other$iso$obsIRrFomu, l$record$iso$recIRdistr, l$record$iso$recIRdistrLFomu, l$record$iso$recIRdistrRFomu,
-                    l$record$add$recMonoFomu, l$record$add$recMonoMainAddFomu, l$record$add$recMonoFomuWithInSameComp, l$record$add$recMITwithInSameComp, l$record$bio$recCompMainAddFomu, l$record$bio$recCompMonoFomu, l$record$bio$recCompBioLink,
-                    massRT_new, l$other$rt$obsFomuRT, l$other$rt$obsRTfomu, l$record$rt$recFomuRT, l$record$rt$recRTfomu, l$record$rt$recFomuRTdistr, l$record$rt$recRTdistrFomu,
-                    s_pkAdd, s_pkComp, s_ma, s_iso, t_RT, t_post)
 
 # List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
 #                 arma::sp_mat iso_spMat,                 // iso matrix
@@ -153,76 +141,4 @@ l_new <- UpdateMain(post_spMat, l$model$iso, l$model$add, l$model$bio, fomuCompI
 #                 double t_post                           // threshold used to filter posterior
 #                 
 # )
-
-
-# k <- 2
-# l <- NULL
-# 
-# massInt_new <- c(50,25,75,125)
-# massMZ_new <- c(20.01,39.99,30,40)
-# massRT_new <- c(30,40,50,60)
-# for(i in 1:k){
-#   if(is.null(l)){
-#     l <- UpdateMain(post_spMat, iso_spMat, mass, compMass, massInt, pk, massMZ, massRT, obsMA, recMA, recMAdistr,
-#                     obsIR, obsIRlComp, obsIRrComp, recIRdistr, recIRdistrLComp, recIRdistrRComp,
-#                     monoAddComp, otherAdd, recMostIntAddInfo, recMainAdd,
-#                     obsRT, recRT, recRTdistr, obsRTcomp, recRTdistrComp, ma, s_pk, s_ma, s_iso, t_mainAdd, threshold)
-#   }else{
-#     l_new <- UpdateMain(post_spMat, l$iso, mass, compMass, massInt_new, l$pk, massMZ_new, massRT_new, l$obsMA, l$recMA, l$recMAdistr,
-#                         l$obsIR, l$obsIRlComp, l$obsIRrComp, l$recIRdistr, l$recIRdistrLComp, l$recIRdistrRComp, 
-#                         l$obsRT, l$recRT, l$recRTdistr, l$obsRTcomp, l$recRTdistrComp, l$ma, s_pk, s_ma, s_iso, threshold)
-#   }
-#   
-# }
-
-
-# post <-matrix( c(0.03,0.03,0.92,0.02,0.90,0.04,0.03,0.03,0.92,0.04,0.02,0.02,0.01,0.01,0.97,0.01), nrow=4, ncol=4, byrow = TRUE)        # fill matrix by rows 
-# post_spMat <- as(post, "dgCMatrix")
-# iso <- matrix( c(0,0,0.4,0,0,0,0,0.2,2.5,0,0,0,0,5,0,0), nrow=4, ncol=4, byrow = TRUE)
-# iso_spMat <- as(iso, "dgCMatrix")
-# mass <- c(20.01,39.99,60,99.99)
-# compMass <- c(40,20,100,120)
-# massInt <- c(50,25,75,100)
-# pk <- c(0.6,0.2,0.1,0.1)
-# massMZ <- c(20.01,39.99,30,40)
-# massRT <- c(40,65,85,75)
-# obsMA <- vector('numeric')
-# recMA <- vector('numeric')
-# recMAdistr <- NULL
-# obsIR <- NULL
-# obsIRlComp <- vector('numeric')
-# obsIRrComp <- vector('numeric')
-# recIRdistr <- NULL
-# recIRdistrLComp <- vector('numeric')
-# recIRdistrRComp <- vector('numeric')
-# obsRT <- NULL
-# recRT <- NULL
-# recRTdistr <- NULL
-# obsRTcomp <- vector('numeric')
-# recRTdistrComp <- vector('numeric')
-# ma <- 3
-# s_pk <- 0.1
-# s_ma <- 0.1
-# s_iso <- 0.1
-# threshold <- 0.9
-# 
-# 
-# k <- 2
-# l <- NULL
-# 
-# massInt_new <- c(50,25,75,125)
-# massMZ_new <- c(20.01,39.99,30,40)
-# massRT_new <- c(30,40,50,60)
-# for(i in 1:k){
-#   if(is.null(l)){
-#     l <- UpdateMain(post_spMat, iso_spMat, mass, compMass, massInt, pk, massMZ, massRT, obsMA, recMA, recMAdistr,
-#                     obsIR, obsIRlComp, obsIRrComp, recIRdistr, recIRdistrLComp, recIRdistrRComp, 
-#                     obsRT, recRT, recRTdistr, obsRTcomp, recRTdistrComp, ma, s_pk, s_ma, s_iso, threshold)
-#   }else{
-#     l <- UpdateMain(post_spMat, l$iso, mass, compMass, massInt_new, l$pk, massMZ_new, massRT_new, l$obsMA, l$recMA, l$recMAdistr,
-#                     l$obsIR, l$obsIRlComp, l$obsIRrComp, l$recIRdistr, l$recIRdistrLComp, l$recIRdistrRComp, 
-#                     l$obsRT, l$recRT, l$recRTdistr, l$obsRTcomp, l$recRTdistrComp, l$ma, s_pk, s_ma, s_iso, threshold)
-#   }
-#   
-# }
 

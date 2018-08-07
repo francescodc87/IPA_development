@@ -2,49 +2,34 @@
 using namespace Rcpp;
 // [[Rcpp::depends(RcppArmadillo)]]
 
-NumericVector initVec(int num, double element)
-{
-  NumericVector result(num);
-  for(int i = 1; i <= num; i++){
-    result[i-1] = element;
+
+
+arma::rowvec spMatGetDenseRowVec(arma::sp_mat x, int rowNum){
+  arma::sp_mat::const_row_iterator xStart = x.begin_row(rowNum);
+  arma::sp_mat::const_row_iterator xEnd   = x.end_row(rowNum);
+  arma::rowvec result = arma::zeros<arma::rowvec>(x.n_cols);
+  for(arma::sp_mat::const_row_iterator it = xStart; it != xEnd; ++it)
+  { 
+    double p = (*it);
+    if(p != 0){
+      int colNum = it.col();
+      result.at(colNum) = p;
+    }
   }
   return result;
 }
-
-NumericMatrix initMatrix(int row, int column, double num){
-  NumericMatrix result(row,column);
-  std::fill( result.begin(), result.end(), num ) ;
-  return result;
-}
-
-NumericVector computeRTprior(){
-  return R_NilValue;
-}
-
-CharacterVector getColumnNameVec (int x){
-  CharacterVector result(x+1);
-  for (int i = 0; i < x; i++){
-    result[i] = toString(i+1);
-  }
-  result[x] = "unknown";
-  return result;
-}
-
-
 
 
 // [[Rcpp::export]]
-NumericMatrix ComputePriorRcpp(NumericVector mass,
+arma::sp_mat ComputePriorRcpp( NumericVector mass,
                                NumericVector compMass,
                                NumericVector pk,  // prior knowledge vector
                                NumericVector RTs,
-                               NumericVector ppm,
-                               NumericVector compId,
+                               double ppm,
                                List RTranges,     //List RTranges: A list, every element: RTmin, RTmax, RT_in, RT_out, is not applied here
                                double unknownProb,
                                double limit,
-                               int log,
-                               bool v = false,
+                               bool log = false,
                                bool RTrangeList = false
                                ) {
   // get mass number massNum and compound number compNum 
@@ -52,12 +37,8 @@ NumericMatrix ComputePriorRcpp(NumericVector mass,
   int compNum = compMass.length();
   
   // set priorKnowledge default value
-  if(pk == R_NilValue){
-    pk = initVec(compNum,1);
-  }else{
-    if(pk.length() != compNum){
-      stop("Error: please check prior knowledge length");
-    }
+  if(pk.length() != compNum){
+    stop("Error: please check prior knowledge length");
   }
   
   if(RTrangeList){ // test if use RTranges
@@ -84,34 +65,26 @@ NumericMatrix ComputePriorRcpp(NumericVector mass,
   }
 
   // set ppm default value
-  if(ppm == R_NilValue){
-    ppm = initVec(compNum,3);
-  }else{
-    if(ppm.length() != compNum){
-      stop("Error: please check ppm length");
-    }else{
-      // if ppm has been inserted, examine ppm value
-      for(int i = 0; i < ppm.length(); i++){
-        if(ppm[i] <= 0){
-          stop("Error: please check ppm value");
-        }
-      }
-    }
+  if(ppm == NA_REAL){
+    Rcout << "NA detected!!!" <<std::endl;
+    ppm = 5;
   }
   
   // initiate the prior probability matrix
-  arma::mat  prior_arma = arma::zeros<arma::mat>(massNum,compNum+1);
+  arma::sp_mat  prior_spMat = arma::sp_mat(massNum,compNum+1);
   
+  int v = 0;
   // prior probability computing
   for(int i = 0; i < massNum; i++){
     // compute sigma vector(1xC)
-    NumericVector sigmaVec = ppm * mass[i] / ( 2 * 1e6);
+    NumericVector ppms(compNum, ppm);
+    NumericVector sigmaVec = ppms * mass[i] / ( 2 * 1e6);
     
     // compute likelihood(1xC) di based on mass difference
-    NumericVector part1 = (-0.5) / pow(sigmaVec,2);
-    NumericVector part2 = pow((initVec(compNum,mass[i])-compMass),2);
+    NumericVector part1 = (-0.5) / pow(sigmaVec, 2);
+    NumericVector masses(compNum, mass[i]);
+    NumericVector part2 = pow((masses - compMass), 2);
     NumericVector di = exp((part1 * part2));
-    
     // compute likelihood(1xC) rt based on RT 
     // RT.prior <-rep(1,Nc)
     //   if(length(RT.ranges)==Nc){
@@ -119,60 +92,54 @@ NumericMatrix ComputePriorRcpp(NumericVector mass,
     //     ind.RT.out <- ind.RT.out[which(RTs[i]<RT.min[ind.RT.out] | RTs[i]>RT.max[ind.RT.out])]
     //     RT.prior[ind.RT.out] <- RT.prior.penality
     //   }
-    NumericVector rt;
-    if(RTrangeList){ // test if use RTranges, here RT is not considered as a factor
-      rt = initVec(compNum,1);
-    }else{
-      rt = initVec(compNum,1);
-    }
+    // NumericVector rt;
+    // if(RTrangeList){ // test if use RTranges, here RT is not considered as a factor
+    //   rt = initVec(compNum,1);
+    // }else{
+    //   rt = initVec(compNum,1);
+    // }
     
     // prior probability ∝ mass difference likelihood * prior knowledge likelihood * RT prior likelihood
     // pr[i,1:Nc] <- (exp((-0.5*precision[i])*((compounds.mass-mass[i])^2)))*prior.knowledge*RT.prior
-    arma::rowvec x = di * pk * rt;
-    prior_arma.submat(i,0,i,compNum-1) = x;
-    
+    // arma::rowvec x = di * pk * rt;
+    arma::rowvec x = di * pk;
+    prior_spMat.submat(i,0,i,compNum-1) = x;
+
     // if probability value is too small, set it to 0
-    arma::rowvec  prior_rowi_arma = prior_arma.row(i);
-    double rowi_sum = sum(prior_rowi_arma);
+    arma::rowvec  priorRow_rvec = spMatGetDenseRowVec(prior_spMat, i);
+    double rowi_sum = sum(priorRow_rvec);
     if(!NumericVector::is_na(limit)){
       double thold = limit * rowi_sum;                  // threshold
       double replace = 0;                               //replace
-      arma::uvec ids = find(prior_rowi_arma < thold);   // Find indices
-      prior_rowi_arma.elem(ids).fill(replace);          // Assign value to condition
+      arma::uvec ids = find(priorRow_rvec < thold);   // Find indices
+      priorRow_rvec.elem(ids).fill(replace);          // Assign value to condition
     }
 
     // compute unknown probability
-    rowi_sum = sum(prior_rowi_arma);
+    rowi_sum = sum(priorRow_rvec);
     double u = (unknownProb/(1-unknownProb)) * rowi_sum;
     if(u==0){
       u = 1;
     }
-    prior_rowi_arma[compNum] = u;
+    priorRow_rvec[compNum] = u;
     
     //normalise the prior probability
-    rowi_sum = sum(prior_rowi_arma);
-    prior_rowi_arma = prior_rowi_arma / rowi_sum;
-    prior_arma.row(i) = prior_rowi_arma;
-    
+    rowi_sum = sum(priorRow_rvec);
+    priorRow_rvec = priorRow_rvec / rowi_sum;
+    prior_spMat.row(i) = priorRow_rvec;
+
     // print some logs
-    if(v){
-      if(i % log == 0) {
-        Rcout << "Computing Prior in Rcpp, " << (i * 100) / (massNum - 1) <<"%" << std::endl;
+    if(log){
+      int old_v = v;
+      v = (i * 100) / massNum;
+      if(old_v !=v){
+        Rcout << "computing prior probability: " << v << "%" <<std::endl;
       }
     } 
-    
   }
   
-  // wrap datatype back
-  NumericMatrix prior = wrap(prior_arma);
   
-  // insert the column name of prior probability matrix
-  if(compId != R_NilValue){
-    CharacterVector colName = getColumnNameVec(compNum);
-    colnames(prior) = colName;
-  }
-  
-  return prior;
+  return prior_spMat;
 }
 
 

@@ -6,8 +6,8 @@ mzmatch.init(version.1 = F)
 load("~/RworkingDirectory/IPA_development/data/DBs_all_compounds_only1entry.Rdata")
 source('~/RworkingDirectory/IPA_development/class/PriorRelated/IPA_Massbased_Priors_R.R')
 Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/class/PriorRelated/IPA_Massbased_Priors_NoRT_Rcpp.cpp')
-PeakML.Data <- PeakML.Read("/home/yuqiouyang/RworkingDirectory/IPA_development/data/allpeaks_filtered.peakml")
-
+# PeakML.Data <- PeakML.Read("/home/yuqiouyang/RworkingDirectory/IPA_development/data/allpeaks_filtered.peakml")
+PeakML.Data <- PeakML.Read("C:/Users/oyyqwhuiss/Documents/RworkingDirectory/IPA_development/data/allpeaks_filtered.peakml")
 
 #refine PeakML data into a multi element table
 PeakML.Data.Table <- PeakML.Methods.getCompleteTable(PeakML.Data)
@@ -64,21 +64,20 @@ Prior_Rcpp <- ComputePriorRcpp(masses,
                                as.numeric(compMass),
                                rep(1,length(compMass)),
                                NA,
-                               rep(3,length(compMass)),
-                               1:length(compMass),
+                               3,
                                NULL,
                                0.05,
                                1e-02,
-                               100,
                                TRUE,
                                FALSE
                                )
-save(Prior_Rcpp, file="~/RworkingDirectory/IPA_development/data/Prior_Rcpp_oneEntry_180614.Rdata")
+save(Prior_Rcpp, file="~/RworkingDirectory/IPA_development/data/Prior_Rcpp_oneEntry_180806.Rdata")
 
-# # test agreement, can be achieved by load the data without running the code above
-# # e.g load(file="~/RworkingDirectory/IPA_development/data/Prior_Rcpp_oneEntry_180614.Rdata")
-# #     load(file="~/RworkingDirectory/IPA_development/data/Prior_R_oneEntry_180615.Rdata")
-# all.equal(as.matrix(Prior_R),Prior_Rcpp)
+## test agreement, can be achieved by load the data without running the code above
+# rm(PeakML.Data)
+# load(file="~/RworkingDirectory/IPA_development/data/Prior_R_oneEntry_180615.Rdata")
+# load(file="~/RworkingDirectory/IPA_development/data/Prior_Rcpp_oneEntry_180806.Rdata")
+# all.equal(Prior_R,Prior_Rcpp, check.attributes = FALSE)
 
 ## action after computing, prepare data for posterior computing
 # Prior = Prior_Rcpp

@@ -21,8 +21,8 @@ source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior
 source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_ADD_ISO_BIO_INT_NoPot_Rcpp.R')
 Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_GS_INT_NoPot.cpp')   #'GS' = 'GibbsSampling'
 
-PeakML.Data <- PeakML.Read("/home/yuqiouyang/RworkingDirectory/IPA_development/data/allpeaks_filtered.peakml")
-# PeakML.Data <- PeakML.Read("C:/Users/oyyqwhuiss/Documents/RworkingDirectory/IPA_development/data/allpeaks_filtered.peakml")
+# PeakML.Data <- PeakML.Read("/home/yuqiouyang/RworkingDirectory/IPA_development/data/allpeaks_filtered.peakml")
+PeakML.Data <- PeakML.Read("C:/Users/oyyqwhuiss/Documents/RworkingDirectory/IPA_development/data/allpeaks_filtered.peakml")
 
 ## These are for debug use
 # debug(IPA.sampler.Add.Iso.Bio)
@@ -81,7 +81,7 @@ RT <- as.numeric(PosAllData[,"RTs"])[MassKept2]                       # filter o
 
 # Intensities of masses: e.g, for one mass, the intensity is the maximum value of the mass being measured in G groups
 Int <- as.numeric(apply(PosAllData[,3:40],1, max, na.rm=T)[MassKept2])
-
+rm(PeakML.Data)
 
 
 ## Before running the script, we need to filter out some invalid or negative value (no need)
@@ -104,19 +104,19 @@ Int <- as.numeric(apply(PosAllData[,3:40],1, max, na.rm=T)[MassKept2])
 # save(Prior_filtered,Add,Iso,RT,Bio,Int, file="~/RworkingDirectory/IPA_development/data/PosteriorEfficiencyTest_Rcpp_180718.Rdata")
 
 
-# system.time({ComputePosteriorRcpp_Add_Iso_Bio_Int_NoPot(P=Prior_filtered,Add = Add,
-#                                                         Iso = Iso, RT = RT,
-#                                                         Bio = Bio, Int = Int,
-#                                                         RTwin = 5, it =1100, burn = 100,
-#                                                         allSamp = F, delAdd =0.4,
-#                                                         delIso = 0.2, delBio =1, v = T)})
-
-system.time({ComputePosteriorR_Add_Iso_Bio_Int_NoPot(P=Prior_filtered,Add = Add,
+system.time({ComputePosteriorRcpp_Add_Iso_Bio_Int_NoPot(P=Prior_filtered,Add = Add,
                                                         Iso = Iso, RT = RT,
                                                         Bio = Bio, Int = Int,
                                                         RTwin = 5, it =1100, burn = 100,
                                                         allSamp = F, delAdd =0.4,
                                                         delIso = 0.2, delBio =1, v = T)})
+
+# system.time({ComputePosteriorR_Add_Iso_Bio_Int_NoPot(P=Prior_filtered,Add = Add,
+#                                                         Iso = Iso, RT = RT,
+#                                                         Bio = Bio, Int = Int,
+#                                                         RTwin = 5, it =1100, burn = 100,
+#                                                         allSamp = F, delAdd =0.4,
+#                                                         delIso = 0.2, delBio =1, v = T)})
 
 
 # test_row = nrow(Prior_filtered)

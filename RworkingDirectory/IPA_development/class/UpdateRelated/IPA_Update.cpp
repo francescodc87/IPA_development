@@ -93,10 +93,12 @@ int MsgAndChoWhenOverlapAssignDetected(int num){
   Rcout << "-----------------------------------------------------!!!WARNING!!! " << num << " sets of overlapped assignments detected--------------------------------------------" << std::endl;
   Rcout << "This step is designed to initially decrease the number of overlapped assignments, it is not the step of choose masses in overlapped assignments" << std::endl;
   Rcout << "Type 0 to choose ignoring all overlapped assignments, then all overlapped assignments will be deleted" << std::endl;
-  Rcout << "Type 1 to choose software help, the rule of filtering overlapped assignments are: " << std::endl;
+  Rcout << "Type 1 to choose manually, caution if choose to select mass manually you can not ask for software help anymore" << std::endl;
+  Rcout << "Type 2 to choose software help, the rule of filtering overlapped assignments are: " << std::endl;
   Rcout << "     I. prefer assignments in which the masses show higher intensities" << std::endl;
   Rcout << "     II. prefer assignments in which detecting lower massaccuracies" << std::endl;
-  Rcout << "     III. prefer assignments in which more connections in formula levels are found based on the mass retention times" << std::endl;
+  Rcout << "     III. prefer assignments in which more isotope connections are found based on the mass retention times" << std::endl;
+  Rcout << "     IV. prefer assignments in which more adduct connections are found based on the mass retention times" << std::endl;
   Rcout << "Please insert your choice in the next line and press 'Enter'" << std::endl;
   Environment base = Environment("package:base");
   Function readline = base["readline"];
@@ -126,7 +128,7 @@ void MsgWhenChooseSoftwareHelp(){
   Rcout << " " << std::endl;
 }
 
-int MsgAndChoiceOfMasses(int fomuNum, arma::rowvec massNum, arma::rowvec score){
+int MsgAndChoiceOfMasses(int fomuNum, arma::rowvec massNum, arma::rowvec mz, arma::rowvec rt){
   Rcout << " " << std::endl;
   Rcout << "----------------------------------------------------------------------------------------------------------------------------------------------" << std::endl;
   Rcout << "Here are all the information of masses in an overlapped assignment, please look carefully and then choose the correct assignment by type the mass number" << std::endl;
@@ -134,8 +136,8 @@ int MsgAndChoiceOfMasses(int fomuNum, arma::rowvec massNum, arma::rowvec score){
   Rcout << "However, if you can not decide which one is the correct assignment, type 0, then all assignments related to this chemical fomula will be deleted" << std::endl;
   Rcout << "    Fomula number: " << fomuNum + 1 << std::endl;
   for(int i = 0; i < massNum.n_elem; i++){
-    // Rcout << "    Mass number: " << massNum.at(i) + 1 << ";  m/z: " << mz.at(massNum.at(i)) << ";  RT: " << rt.at(massNum.at(i)) << std::endl;
-    Rcout << "    Mass number: " << massNum.at(i) + 1 << std::endl;
+    Rcout << "    Mass number: " << massNum.at(i) + 1 << ";  m/z: " << mz.at(i) << ";  RT: " << rt.at(i) << std::endl;
+    // Rcout << "    Mass number: " << massNum.at(i) + 1 << std::endl;
   }
   Rcout << "Please insert your choice (mass number) in the next line and press 'Enter'" << std::endl;
   Environment base = Environment("package:base");
@@ -240,34 +242,37 @@ int CountLinkInSpMatRow(arma::sp_mat x, int rowNum, arma::uvec dupFomu, arma::ro
   return result;
 }
 
-arma::uvec SelectLinkWinner(NumericVector isoLink, NumericVector addLink){
-  NumericVector allLink = isoLink + addLink;
-  arma::rowvec allLink_rvec = as<arma::rowvec>(allLink);
-  double maxNum = arma::max(allLink_rvec);
-  return arma::find(allLink_rvec == maxNum);
+// arma::uvec SelectLinkWinner(NumericVector isoLink, NumericVector addLink){
+//   Rcout << "isoLink" << std::endl;
+//   print(isoLink);
+//   Rcout << "addLink" << std::endl;
+//   print(addLink);
+//   NumericVector allLink = isoLink + addLink;
+//   arma::rowvec allLink_rvec = as<arma::rowvec>(allLink);
+//   double maxNum = arma::max(allLink_rvec);
+//   return arma::find(allLink_rvec == maxNum);
+// }
+
+
+void printOutRvec(arma::rowvec x){
+  // Rcout << "UVector" << std::endl;
+  for (int i = 0; i < x.n_elem; i++){
+    Rcout << "idx: " << i << "; value: " << x.at(i) <<std::endl;
+  }
 }
 
-
-// void printOutRvec(arma::rowvec x){
-//   // Rcout << "UVector" << std::endl;
-//   for (int i = 0; i < x.n_elem; i++){
-//     Rcout << "idx: " << i << "; value: " << x.at(i) <<std::endl;
-//   }
-// }
-// 
-// void printOutUvec(arma::uvec x){
-//   // Rcout << "UVector" << std::endl;
-//   for (int i = 0; i < x.n_elem; i++){
-//     Rcout << "idx: " << i << "; value: " << x.at(i) <<std::endl;
-//   }
-// }
+void printOutUvec(arma::uvec x){
+  Rcout << "UVector" << std::endl;
+  for (int i = 0; i < x.n_elem; i++){
+    Rcout << "idx: " << i << "; value: " << x.at(i) <<std::endl;
+  }
+}
 
 // [[Rcpp::export]]
 List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
                 arma::sp_mat iso_spMat,                 // iso matrix
                 arma::sp_mat add_spMat,                 // add matrix
                 arma::sp_mat bio_spMat,                 // bio matrix
-                NumericVector fomuCompId,               // compound id of fomulas
                 NumericVector pkFomu,                   // prior knowledge of all fomulas
                 NumericVector pkComp,                   // prior knowledge of all compounds
                 double ma,                              // mass accuracy
@@ -301,8 +306,13 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
                 double s_pkComp,                        // update scale(speed) for pkComp
                 double s_ma,                            // update scale for ma (0< <=1)
                 double s_iso,                           // update scale for iso (0< <=1)
+                double w_int,                           // weight for most intense mass when solving overlapped assignment
+                double w_ma,                            // weight for min mass accuracy mass when solving overlapped assignment
+                double w_addLink,                       // weight for adduct connection of mass when solving overlapped assignment
+                double w_isoLink,                       // weight for isotope connection of of mass when solving overlapped assignment
                 double t_RT,                            // threshold used to count iso and add connection when solving overlapped assignments automatically
-                double t_post                           // threshold used to filter posterior
+                double t_post,                          // threshold used to filter posterior
+                bool isTest = true                      // is it a test?
 
 ){
   Rcout << " " << std::endl;
@@ -357,17 +367,59 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
     arma::uvec dupFomuUni_uvec = unique(dupFomu_uvec);                      // that is the unique duplicated fomula numbers
 
     // first inspect the number of overlapped assignments and then make choice of decreasing the number
-    int beforeSelectMass = MsgAndChoWhenOverlapAssignDetected(dupFomuUni_uvec.n_elem);
-    if(beforeSelectMass == 0){
+    int firstChoice = MsgAndChoWhenOverlapAssignDetected(dupFomuUni_uvec.n_elem);
+    if(firstChoice == 0){
       MsgWhenIgnoreAllOverlapAssign();
-      for(int i =0; i < dupFomuUni_uvec.n_elem; i++){
+      for(int i = 0; i < dupFomuUni_uvec.n_elem; i++){
         int dupFomuNum = dupFomuUni_uvec.at(i);                                     // first get one of the duplicate fomula number
-        arma::uvec dupFomuIdx_uvec = find(fomuSet_rvec == dupFomuNum);              // search the idx of the duplicate fomula number in fomula row vector
+        arma::uvec dupFomuIdx_uvec = arma::find(fomuSet_rvec == dupFomuNum);        // search the idx of the duplicate fomula number in fomula row vector
         arma::uvec allFomuIdx_uvec = find_finite(fomuSet_rvec);                     // all idx in fomula row vector
         arma::uvec retainFomuIdx_uvec = SetDiff(allFomuIdx_uvec, dupFomuIdx_uvec);  // the idx of retained fomula (which is also the idx of the retained masses)
         massSet_rvec = massSet_rvec.elem(retainFomuIdx_uvec).t();                   // the retained mass
         fomuSet_rvec = fomuSet_rvec.elem(retainFomuIdx_uvec).t();                   // the retained formula
+        Rcout<< "0;massSet_rvec" << std::endl;
+        printOutRvec(massSet_rvec);
+        Rcout<< "0;fomuSet_rvec" << std::endl;
+        printOutRvec(fomuSet_rvec);
       }
+    } else if(firstChoice == 1){
+      // first get all indices of non-duplicate fomula, pop them into selectedIdx
+      NumericVector selectedIdx;
+      arma::uvec nonDupFomu_uvec = SetDiff(fomuSetUni_uvec, dupFomuUni_uvec);
+      for(int i = 0; i < nonDupFomu_uvec.n_elem; i++){
+        int nonDupFomuNum = nonDupFomu_uvec.at(i);
+        arma::uvec nonDupIdx_uvec = arma::find(fomuSet_rvec == nonDupFomuNum);
+        for(int j = 0; j < nonDupIdx_uvec.n_elem; j++){
+          selectedIdx.push_back(nonDupIdx_uvec.at(j));
+        }
+      }
+      for(int i = 0; i < dupFomuUni_uvec.n_elem; i++){
+        int dupFomuNum = dupFomuUni_uvec.at(i);                                     // first get one of the duplicate fomula number
+        arma::uvec dupFomuIdx_uvec = arma::find(fomuSet_rvec == dupFomuNum);              // search the idx of the duplicate fomula number in fomula row vector
+        arma::rowvec dupMasses_rvec = massSet_rvec.elem(dupFomuIdx_uvec).t();       // get the duplicate masses
+        arma::uvec dupMasses_uvec = as<arma::uvec>(wrap(dupMasses_rvec));
+        Rcout<< "dupMasses_uvec" << std::endl;
+        printOutUvec(dupMasses_uvec);
+        arma::rowvec dupMassesMZ_rvec = massMZ_rvec.elem(dupMasses_uvec).t();       // get the mass accuracy of the duplicate masses
+        arma::rowvec dupMassesRT_rvec = massRT_rvec.elem(dupMasses_uvec).t();       // get the retention time of the duplicate masses
+        Rcout<< "dupMassesMZ_rvec" << std::endl;
+        printOutRvec(dupMassesMZ_rvec);
+        Rcout<< "dupMassesRT_rvec" << std::endl;
+        printOutRvec(dupMassesRT_rvec);
+        int select_mass = MsgAndChoiceOfMasses(dupFomuNum, dupMasses_rvec, dupMassesMZ_rvec, dupMassesRT_rvec);
+        if (select_mass != -1){
+          arma::uvec selectMassIdx_uvec = arma::find(dupMasses_rvec == select_mass);
+          selectedIdx.push_back(dupFomuIdx_uvec.at(selectMassIdx_uvec.at(0)));        // push back the index 
+          MsgAfterChoiceOfMasses();   // print some information after user making the choice each time
+        }
+      }
+      arma::uvec selectedIdx_uvec = as<arma::uvec>(selectedIdx);
+      massSet_rvec = massSet_rvec.elem(selectedIdx_uvec).t();                   // the retained mass
+      fomuSet_rvec = fomuSet_rvec.elem(selectedIdx_uvec).t();                   // the retained formula
+      Rcout<< "1;massSet_rvec" << std::endl;
+      printOutRvec(massSet_rvec);
+      Rcout<< "1;fomuSet_rvec" << std::endl;
+      printOutRvec(fomuSet_rvec);
     } else{
       MsgWhenChooseSoftwareHelp();
 
@@ -390,7 +442,7 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
       // then select mass of every duplicate fomula, pop the index into selectedIdx
       for(int i =0; i < dupFomuUni_uvec.n_elem; i++){
         int dupFomuNum = dupFomuUni_uvec.at(i);                                   // first get one of the duplicate fomula number
-        arma::uvec dupFomuIdx_uvec = find(fomuSet_rvec == dupFomuNum);            // search the idx of the duplicate fomula number in fomula row vector
+        arma::uvec dupFomuIdx_uvec = arma::find(fomuSet_rvec == dupFomuNum);            // search the idx of the duplicate fomula number in fomula row vector
         arma::rowvec dupSubMassSet_rvec = massSet_rvec.elem(dupFomuIdx_uvec).t(); // get duplicated masses
         
         // now we have the sub duplicated set of masses/fomula from each fomula's all assignments, the next is to perform score criterion and automatic select the mass with the highest score
@@ -421,20 +473,37 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
         arma::rowvec dupSubMassIntSet_rvec = as<arma::rowvec>(dupSubMassIntSet);
         arma::rowvec dupSubMAset_rvec = as<arma::rowvec>(dupSubMAset);
         // arma::rowvec dupSubMassRTset_rvec = as<arma::rowvec>(dupSubMassRTset);
-
+        Rcout<< "dupSubMassSet_rvec" <<std::endl;
+        printOutRvec(dupSubMassSet_rvec);
         // rule I: prefer assignments in which the masses show higher intensities
         double maxInt = arma::max(dupSubMassIntSet_rvec);
         arma::uvec dupSubMaxIntIdx = arma::find(dupSubMassIntSet_rvec == maxInt);
-        dupSubScore_rvec.elem(dupSubMaxIntIdx) += 4;       // score add
-
+        dupSubScore_rvec.elem(dupSubMaxIntIdx) += w_int;       // score add
+        Rcout<< "dupSubMaxIntIdx" <<std::endl;
+        printOutUvec(dupSubMaxIntIdx);
+        
         // rule II: prefer assignments in which detecting lower massaccuracies
         double minMA = arma::min(dupSubMAset_rvec);
         arma::uvec dupSubMinMAidx = arma::find(dupSubMAset_rvec == minMA);
-        dupSubScore_rvec.elem(dupSubMinMAidx) += 3;       // score add
+        dupSubScore_rvec.elem(dupSubMinMAidx) += w_ma;       // score add
+        Rcout<< "dupSubMinMAidx" <<std::endl;
+        printOutUvec(dupSubMinMAidx);
 
-        // rule III: prefer assignments in which more connections in formula levels are found based on the mass retention times
-        arma::uvec dupSubLinkWinner = SelectLinkWinner(dupSubIsoLink,dupSubAddLink);
-        dupSubScore_rvec.elem(dupSubLinkWinner) += 2;    // score add
+        // rule III: prefer assignments in which more isotope connections are found based on the mass retention times
+        arma::rowvec dupSubIsoLink_rvec = as<arma::rowvec>(dupSubIsoLink);
+        double maxIsoLink = arma::max(dupSubIsoLink_rvec);
+        arma::uvec dupSubMaxIsoLink = arma::find(dupSubIsoLink_rvec == maxIsoLink);
+        dupSubScore_rvec.elem(dupSubMaxIsoLink) += w_isoLink;    // score add
+        Rcout<< "dupSubMaxIsoLink" <<std::endl;
+        printOutUvec(dupSubMaxIsoLink);
+        
+        // rule IV: prefer assignments in which more adduct connections are found based on the mass retention times
+        arma::rowvec dupSubAddLink_rvec = as<arma::rowvec>(dupSubAddLink);
+        double maxAddLink = arma::max(dupSubAddLink_rvec);
+        arma::uvec dupSubMaxAddLink = arma::find(dupSubAddLink_rvec == maxAddLink);
+        dupSubScore_rvec.elem(dupSubMaxAddLink) += w_addLink;       // score add
+        Rcout<< "dupSubMaxAddLink" <<std::endl;
+        printOutUvec(dupSubMaxAddLink);
         
         // after thresholded by three rules, perform automatic selection of mass in the subvec of duplicate assignments by the final score
         // dupSubScore_rvec, dupSubFomuSet_rvec, dupSubMassSet_rvec, dupFomuIdx_uvec
@@ -443,12 +512,18 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
         if(maxScoreFind_uvec.n_elem == 1){
           selectedIdx.push_back(dupFomuIdx_uvec.at(maxScoreFind_uvec.at(0)));
         } else{
+          int select_mass = -1;
           arma::rowvec manualDupMass_rvec = dupSubMassSet_rvec.elem(maxScoreFind_uvec).t();
           arma::rowvec manualDupScore_rvec = dupSubScore_rvec.elem(maxScoreFind_uvec).t();
           arma::uvec manualDupFomuIdx_uvec = dupFomuIdx_uvec.elem(maxScoreFind_uvec);
-          int select_mass = MsgAndChoiceOfMasses(dupFomuNum, manualDupMass_rvec, manualDupScore_rvec);    
+          arma::uvec manualDupMass_uvec = as<arma::uvec>(wrap(manualDupMass_rvec));
+          arma::rowvec manualDupMassMZ_rvec = massMZ_rvec.elem(manualDupMass_uvec).t();       // get the mass accuracy of the duplicate masses
+          arma::rowvec manualDupMassRT_rvec = massRT_rvec.elem(manualDupMass_uvec).t();       // get the retention time of the duplicate masses
+          if(!isTest){
+            select_mass = MsgAndChoiceOfMasses(dupFomuNum, manualDupMass_rvec, manualDupMassMZ_rvec, manualDupMassRT_rvec);
+          }
           if(select_mass != -1){                                                                              
-            arma::uvec selectMassFind_uvec = find(manualDupMass_rvec == select_mass);
+            arma::uvec selectMassFind_uvec = arma::find(manualDupMass_rvec == select_mass);
             selectedIdx.push_back(dupFomuIdx_uvec.at(selectMassFind_uvec.at(0)));
             MsgAfterChoiceOfMasses();   // print some information after user making the choice each time                                                                 
           } 
@@ -457,6 +532,10 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
       arma::uvec selectedIdx_uvec = as<arma::uvec>(selectedIdx);
       fomuSet_rvec = fomuSet_rvec.elem(selectedIdx_uvec).t();                       // filtered fomula set
       massSet_rvec = massSet_rvec.elem(selectedIdx_uvec).t();                       // filtered mass set
+      Rcout<< "2;massSet_rvec" << std::endl;
+      printOutRvec(massSet_rvec);
+      Rcout<< "2;fomuSet_rvec" << std::endl;
+      printOutRvec(fomuSet_rvec);
     }
   }
 
@@ -507,7 +586,7 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
     // check if we observed other retention time of this fomula number before
     // if we have not observed before, push_back retention time value, and push_back the fomula number
     // else we pop the retention time value into the same position we find it, no need to pop_up the compound time cause we have already seen it in obsRTfomu_rvec
-    arma::uvec obsRTFomuFind_uvec = find(obsRTfomu_rvec == theLeftFomuNum);
+    arma::uvec obsRTFomuFind_uvec = arma::find(obsRTfomu_rvec == theLeftFomuNum);
     if(obsRTFomuFind_uvec.is_empty()){
       NumericVector rt;
       rt.push_back(rtValue);
@@ -541,8 +620,8 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
         double theIRvalue_RL = 1 / theIRvalue_LR;                                                                 // isotope ratio (right part to left part)
         // we want to know if we have recorded any isotope ratios of this fomula pair before
         // so we take the intersect
-        arma::uvec obsIRlFomuFind_uvec = find(obsIRlFomu_rvec == theLeftFomuNum);
-        arma::uvec obsIRrFomuFind_uvec = find(obsIRrFomu_rvec == theFomuRight);
+        arma::uvec obsIRlFomuFind_uvec = arma::find(obsIRlFomu_rvec == theLeftFomuNum);
+        arma::uvec obsIRrFomuFind_uvec = arma::find(obsIRrFomu_rvec == theFomuRight);
         arma::uvec obsIRisoFind_uvec = arma::intersect(obsIRlFomuFind_uvec, obsIRrFomuFind_uvec);
         // if we have not recorded the observed isotope ratio of this fomula number pair before, we push_back those value and indices
         // else we pop the value into the same position we find it, but we don't pop the indices in this situation cause the indices are already existed
@@ -586,7 +665,7 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
       arma::uvec monoAddAllIdx = find_finite(monoAddWithInSameComp_uvec.t());
       for(int j = 0; j < monoAddWithInSameComp_uvec.n_elem; j++){                            // iterate on all "other" monoisotopic adducts
         int MonoAddFomuNum = monoAddWithInSameComp_uvec.at(j);
-        arma::uvec MonoAddIdxInFomu_uvec = find(fomuSet_rvec == MonoAddFomuNum);
+        arma::uvec MonoAddIdxInFomu_uvec = arma::find(fomuSet_rvec == MonoAddFomuNum);
         if(!MonoAddIdxInFomu_uvec.is_empty()){
           int MonoAddIdxInFomu = MonoAddIdxInFomu_uvec.at(0);
           int MonoAddMassNum = massSet_rvec.at(MonoAddIdxInFomu);
@@ -648,8 +727,8 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
     int obsIRrFomuNum = obsNewIRrFomu_rvec.at(i);
     NumericVector theIRvalue_LR = obsIR[i];                                    // the intensity ratio_left part right part
     NumericVector theIRvalue_RL = obsIR[i + 1];                                // the intensity ratio_right part left part
-    arma::uvec recIRdistrLFomuFind_uvec = find(recIRdistrLFomu_rvec == obsIRlFomuNum);
-    arma::uvec recIRdistrRFomuFind_uvec = find(recIRdistrRFomu_rvec == obsIRrFomuNum);
+    arma::uvec recIRdistrLFomuFind_uvec = arma::find(recIRdistrLFomu_rvec == obsIRlFomuNum);
+    arma::uvec recIRdistrRFomuFind_uvec = arma::find(recIRdistrRFomu_rvec == obsIRrFomuNum);
     arma::uvec recIRdistrIsoFind_uvec = arma::intersect(recIRdistrLFomuFind_uvec, recIRdistrRFomuFind_uvec);
     // if we have not recorded the distribution information of this observed fomula number pair before,
     // we can push_back the first distribution information of this observed fomula number pair and the indices
@@ -805,7 +884,7 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
   IntegerVector remRTidx;
   for(int i = 0; i < obsNewRTfomu_rvec.n_elem; i++){
     int obsRTfomuNum = obsNewRTfomu_rvec.at(i);
-    arma::uvec recRTdistrFomuFind_uvec = find(recRTdistrFomu_rvec == obsRTfomuNum);
+    arma::uvec recRTdistrFomuFind_uvec = arma::find(recRTdistrFomu_rvec == obsRTfomuNum);
     NumericVector obsFomuRTsub = obsFomuRT[i];
     // if we have not recorded the distribution information of this observed fomula before,
     // we can push_back the first distribution information of this observed fomula and the index (fomula number)

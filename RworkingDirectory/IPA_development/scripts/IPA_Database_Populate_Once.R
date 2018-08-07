@@ -32,7 +32,7 @@ graph = startGraph("http://localhost:7474/db/data/", username = "neo4j", passwor
 
 
 ## next is to populate the data into the database, the jobs are:
-# 1. add prior knowledge ("pk") property for Chemical node, initial value all equal to 1 & add properties (rtAll,rtMean,rtStd) for Chemical node, initialise value to
+## 1. add prior knowledge ("pk") property for Chemical node, initial value all equal to 1 & add properties (rtAll,rtMean,rtStd) for Chemical node, initialise value to
 # query = "MATCH (n:Chemical) SET n.pk = 1, n.rtAll = '', n.rtMean = 0, n.rtStd = 0"
 # cypher(graph, query)
 
@@ -45,6 +45,7 @@ graph = startGraph("http://localhost:7474/db/data/", username = "neo4j", passwor
 # query = "MATCH (n:Chemical) RETURN n.id AS id, n.formula AS formula, n.monoisotopic_mass as mz ORDER BY n.id skip 400000 limit 100000"
 # query = "MATCH (n:Chemical) RETURN n.id AS id, n.formula AS formula, n.monoisotopic_mass as mz ORDER BY n.id skip 500000 limit 100000"
 # query = "MATCH (n:Chemical) RETURN n.id AS id, n.formula AS formula, n.monoisotopic_mass as mz ORDER BY n.id skip 600000"
+query = "MATCH (n:Chemical) RETURN n.id AS id, n.formula AS formula, n.monoisotopic_mass as mz ORDER BY n.id"
 chemInfo <- cypher(graph, query)
 
 # chemInfo is a list, turn list into a datatable
@@ -80,8 +81,8 @@ for(i in 1: length(addType)){
 }
 addId <- 0
 v <- 0
-addTable = data.table(id = rep(0, 3e6), name = rep("",3e6), formula = rep("",3e6), type = rep("", 3e6), mz = rep(0, 3e6),
-                      mainAddOf = rep(0,3e6), isPOS = rep(-1,3e6), POSorNEGof = rep(0,3e6), isoOf = rep(0,3e6), isoRank = rep(0,3e6), initIR = rep(0,3e6))
+addTable = data.table(id = rep(0, 2e7), name = rep("",2e7), formula = rep("",2e7), type = rep("", 2e7), mz = rep(0, 2e7),
+                      mainAddOf = rep(0,2e7), isPOS = rep(-1,2e7), POSorNEGof = rep(0,2e7), isoOf = rep(0,2e7), isoRank = rep(0,2e7), initIR = rep(0,2e7))
 for(i in 1:chemNum){
   # for each compound, get all the monoisotopic adduct firstly
   eachChemFomu <- chemInfoTable$formula[i]
@@ -135,7 +136,7 @@ for(i in 1:chemNum){
       #                          "mainAddOf" = mainAddOf, "isPOS" = isPOS, "POSorNEGof" = compId, "isoOf" = 0, "isoRank" = 0, "initIR" = 0)
       # cat("2")
       # here start to search for its isotopes
-      isoThrld <- 5
+      isoThrld <- 0.1
       allIsoInfo <- (isopattern(isotopes, eachAddFomu, threshold = isoThrld, charge = eachAddCharge, verbose = FALSE))
       allIsoInfo <- allIsoInfo[[1]]
       if(allIsoInfo[1] != "error"){
@@ -193,98 +194,73 @@ for(i in 1:chemNum){
   }
 }
 
-## store the information into csv files
-# save(addTable, file="C:/Users/oyyqwhuiss/Desktop/data_generate_1stpart.Rdata")
-# save(addTable, file="C:/Users/oyyqwhuiss/Desktop/data_generate_2ndpart.Rdata")
-# save(addTable, file="C:/Users/oyyqwhuiss/Desktop/data_generate_3rdpart.Rdata")
-# save(addTable, file="C:/Users/oyyqwhuiss/Desktop/data_generate_4thpart.Rdata")
-# save(addTable, file="C:/Users/oyyqwhuiss/Desktop/data_generate_5thpart.Rdata")
-# save(addTable, file="C:/Users/oyyqwhuiss/Desktop/data_generate_6thpart.Rdata")
-# save(addTable, file="C:/Users/oyyqwhuiss/Desktop/data_generate_7thpart.Rdata")
 
+# ## store the information into csv files
+# save(addTable, file="C:/Users/oyyqwhuiss/Desktop/data_generate_all.Rdata")
 
-# delete empty space in datatable and re-arrange the id, then write into .csv file
-fileURL <- c("C:/Users/oyyqwhuiss/Desktop/data_generate_1stpart.Rdata",
-             "C:/Users/oyyqwhuiss/Desktop/data_generate_2ndpart.Rdata",
-             "C:/Users/oyyqwhuiss/Desktop/data_generate_3rdpart.Rdata",
-             "C:/Users/oyyqwhuiss/Desktop/data_generate_4thpart.Rdata",
-             "C:/Users/oyyqwhuiss/Desktop/data_generate_5thpart.Rdata",
-             "C:/Users/oyyqwhuiss/Desktop/data_generate_6thpart.Rdata",
-             "C:/Users/oyyqwhuiss/Desktop/data_generate_7thpart.Rdata")
-
+# # delete empty space in datatable and re-arrange the id, then write into .csv file
+# load(file = "C:/Users/oyyqwhuiss/Desktop/data_generate_all.Rdata")
 startId <- 1
-endId <- 0
-for(i in 1:length(fileURL)){
-  load(file = fileURL[i])
-  validId <- addTable[id != 0, which = TRUE]
-  idAdd <- validId[length(validId)]
-  startId <- endId + 1
-  endId <- endId + idAdd
-  # id: start~end
-  newId <- c(startId : endId)
-  newAddTable <- addTable[1:idAdd,]
-  rm(addTable)
-  newAddTable[,"id"] <- newId
-  csvKeyId <- substr(fileURL[i], start = 43, stop = 43)
-  csvURL <- paste("C:/Users/oyyqwhuiss/Desktop/data_generate_", csvKeyId, "part.csv", sep = "")
-  fwrite(newAddTable, file = csvURL)
-}
-
-
-
-
+validId <- addTable[id != 0, which = TRUE]
+endId <- length(validId)
+# id: start~end
+newId <- c(startId : endId)
+newAddTable <- addTable[1:endId,]
+rm(addTable)
+newAddTable[,"id"] <- newId
+fwrite(newAddTable, file = "C:/Users/oyyqwhuiss/Desktop/data_generate_all.csv")
 
 
 
 
 ## next job is to use neo4j csv bulk import to insert the data into the database
-# move all csv files in the <NEO4j_HOME>/import/ directory
-# then the cypher command example:
+## move the generated csv file in the <NEO4j_HOME>/import/ directory
+## then type the cypher command in neo4j browser, it is the fastest way, running all this populate command take around 30~40 minutes
 # USING PERIODIC COMMIT
-# LOAD CSV WITH HEADERS FROM "file:///data_generate_1part.csv" AS row
+# LOAD CSV WITH HEADERS FROM "file:///data_generate_all.csv" AS row
 # CREATE (n:Adduct { id: toInteger(row.id), srcDb: 'enviPat', name: row.name, formula: row.formula, type: row.type, mz: toFloat(row.mz), pk: 1 })
 
-# # create index for following data populating
-# # before that we should already have unique constraint on Chemical:id
+## create index for following data populating
+## before that we should already have unique constraint on Chemical:id
 # CREATE CONSTRAINT ON (n:Adduct) ASSERT n.id IS UNIQUE
 
-# # after indexes applied, create relations
-# # 1. link between Chemical and Adduct node:
-# # id, name, formula, type, mz, mainAddOf, isPOS, POSorNEGof, isoOf, isoRank, initIR
+## after indexes applied, create relations
+## 1. link between Chemical and Adduct node:
+## id, name, formula, type, mz, mainAddOf, isPOS, POSorNEGof, isoOf, isoRank, initIR
 # USING PERIODIC COMMIT
-# LOAD CSV WITH HEADERS FROM "file:///data_generate_1part.csv" AS row
+# LOAD CSV WITH HEADERS FROM "file:///data_generate_all.csv" AS row
 # MATCH (a:Chemical),(b:Adduct) WHERE a.id = toInteger(row.mainAddOf) AND b.id = toInteger(row.id)
 # CREATE (a)-[:has_mainAdd]->(b)
-# # link has_pos, has_neg
+## link has_pos, has_neg
 # USING PERIODIC COMMIT
-# LOAD CSV WITH HEADERS FROM "file:///data_generate_1part.csv" AS row
+# LOAD CSV WITH HEADERS FROM "file:///data_generate_all.csv" AS row
 # MATCH (a:Chemical),(b:Adduct) WHERE a.id = toInteger(row.POSorNEGof) AND b.id = toInteger(row.id) AND toInteger(row.isPOS) = 1
 # CREATE (a)-[:has_pos]->(b)
 # USING PERIODIC COMMIT
-# LOAD CSV WITH HEADERS FROM "file:///data_generate_1part.csv" AS row
+# LOAD CSV WITH HEADERS FROM "file:///data_generate_all.csv" AS row
 # MATCH (a:Chemical),(b:Adduct) WHERE a.id = toInteger(row.POSorNEGof) AND b.id = toInteger(row.id) AND toInteger(row.isPOS) = 0
 # CREATE (a)-[:has_neg]->(b)
-# # 2. link inside Adduct node
-# # link is_monoAdd{mostIntTime}
+## 2. link inside Adduct node
+## link is_monoAdd{mostIntTime}
 # USING PERIODIC COMMIT
-# LOAD CSV WITH HEADERS FROM "file:///data_generate_1part.csv" AS row
+# LOAD CSV WITH HEADERS FROM "file:///data_generate_all.csv" AS row
 # MATCH (a:Adduct) WHERE a.id = toInteger(row.id) AND toInteger(row.isoOf) = 0
 # CREATE (a)-[:is_monoAdd{mostIntTime:0}]->(a)
-# # update r.mostIntTime to 1 if main adduct
+## update r.mostIntTime to 1 if main adduct
 # USING PERIODIC COMMIT
-# LOAD CSV WITH HEADERS FROM "file:///data_generate_1part.csv" AS row
+# LOAD CSV WITH HEADERS FROM "file:///data_generate_all.csv" AS row
 # MATCH (a:Adduct)-[r:is_monoAdd]->(a:Adduct) WHERE a.id = toInteger(row.id) AND toInteger(row.mainAddOf) <> 0
 # SET r.mostIntTime = 1
-# # link has_iso {isoRank,irInit,irMean,irStd}
+## link has_iso {isoRank,irInit,irMean,irStd}
 # USING PERIODIC COMMIT
-# LOAD CSV WITH HEADERS FROM "file:///data_generate_1part.csv" AS row
+# LOAD CSV WITH HEADERS FROM "file:///data_generate_all.csv" AS row
 # MATCH (a:Adduct),(b:Adduct) WHERE toInteger(row.isoOf) <> 0 AND a.id = toInteger(row.isoOf) AND b.id = toInteger(row.id)
 # CREATE (a)-[:has_iso{isoRank:toInteger(row.isoRank), irInit:toFloat(row.initIR), irMean:toFloat(0), irStd:toFloat(0)}]->(b)
 
 
-# # build  some indexes for using
+## build  some indexes for using
 # query = "CREATE INDEX ON :Adduct(mz)"
 # cypher(graph, query)
 
 
-# #after populate all data into database, remember keep a backup of the database!!! 
+## after populate all data into database, remember keep a backup of the database!!! 

@@ -30,13 +30,13 @@ Bio_spMat <- as(biotransforamtions, "dgCMatrix")
 # postRcpp <- Efficiency_PosteriorRcpp_Add_Iso_Bio_Int_NoPot(P = Prior_spMat, Add = Add_spMat, Iso = Iso_spMat, Int = Int, Bio = Bio_spMat, RT = RTs, relId = rel.id, corrMat = Corr.matrix)
 
  
-# # RUNNING TIME COMPARE
-# benchmark(replications = 10,
-#           postR = ComputePosteriorR_Add_Iso_Bio_Int_NoPot(P = Prior, Add = adducts, Iso = Iso, Int = Int, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix),
-#           postRcpp = Efficiency_PosteriorRcpp_Add_Iso_Bio_Int_NoPot(P = Prior_spMat, Add = Add_spMat, Iso = Iso_spMat, Int = Int, Bio = Bio_spMat, RT = RTs, relId = rel.id, corrMat = Corr.matrix),
-#           columns = c('test','elapsed','relative','replications'),
-#           order = c('relative'),
-#           relative = 'elapsed')
+# RUNNING TIME COMPARE
+benchmark(replications = 1,
+          postR = ComputePosteriorR_Add_Iso_Bio_Int_NoPot(P = Prior, Add = adducts, Iso = Iso, Int = Int, Bio = biotransforamtions, RT = RTs, relId = rel.id, corrMat = Corr.matrix),
+          postRcpp = Efficiency_PosteriorRcpp_Add_Iso_Bio_Int_NoPot(P = Prior_spMat, Add = Add_spMat, Iso = Iso_spMat, Int = Int, Bio = Bio_spMat, RT = RTs, relId = rel.id, corrMat = Corr.matrix),
+          columns = c('test','elapsed','relative','replications'),
+          order = c('relative'),
+          relative = 'elapsed')
 
 # RESULT COMPARE
 tmp <- NULL
