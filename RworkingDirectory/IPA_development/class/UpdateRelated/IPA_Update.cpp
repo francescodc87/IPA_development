@@ -80,7 +80,7 @@ double UpdateMassAccuracy(double old_ma,
   return new_ma;
 }
 
-double UpdateIso(double old_iso,
+double UpdateIR(double old_iso,
                  double obs_iso_mean,
                  double scale){
   double x = 1 / scale; 
@@ -134,7 +134,7 @@ int MsgAndChoiceOfMasses(int fomuNum, arma::rowvec massNum, arma::rowvec mz, arm
   Rcout << "Here are all the information of masses in an overlapped assignment, please look carefully and then choose the correct assignment by type the mass number" << std::endl;
   Rcout << "Once the input number is inserted, other assignments related to the same chemical fomula will be deleted" << std::endl;
   Rcout << "However, if you can not decide which one is the correct assignment, type 0, then all assignments related to this chemical fomula will be deleted" << std::endl;
-  Rcout << "    Fomula number: " << fomuNum + 1 << std::endl;
+  Rcout << "    Fomula number: " << fomuNum << std::endl;
   for(int i = 0; i < massNum.n_elem; i++){
     Rcout << "    Mass number: " << massNum.at(i) + 1 << ";  m/z: " << mz.at(i) << ";  RT: " << rt.at(i) << std::endl;
     // Rcout << "    Mass number: " << massNum.at(i) + 1 << std::endl;
@@ -269,10 +269,10 @@ void printOutUvec(arma::uvec x){
 }
 
 // [[Rcpp::export]]
-List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
+List UpdateMain(NumericVector colNameIdx,
+                arma::sp_mat post_spMat,                // posterior matrix
                 arma::sp_mat iso_spMat,                 // iso matrix
                 arma::sp_mat add_spMat,                 // add matrix
-                arma::sp_mat bio_spMat,                 // bio matrix
                 NumericVector pkFomu,                   // prior knowledge of all fomulas
                 NumericVector pkComp,                   // prior knowledge of all compounds
                 double ma,                              // mass accuracy
@@ -283,25 +283,25 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
                 List recMAdistr,                        // record of all the distributions of mass accuracies
                 NumericVector massInt,                  // intensity values of masses
                 List obsIR,                             // storage of observed intensity ratios of all detected isotope pairs in this update time
-                NumericVector obsIRlFomu,               // storage of all the left fomula numbers of all the stored observed intensity ratios in this update time
-                NumericVector obsIRrFomu,               // storage of all the right fomula numbers of all the stored observed intensity ratios in this update time
+                NumericVector obsIRmonoFomu,            // storage of all the mono fomula numbers of all the stored observed intensity ratios in this update time
+                NumericVector obsIRisoFomu,             // storage of all the iso fomula numbers of all the stored observed intensity ratios in this update time
                 List recIRdistr,                        // record of all the distributions of all recorded intensity ratios
-                NumericVector recIRdistrLFomu,          // record of all the left fomula numbers of all recorded distributions
-                NumericVector recIRdistrRFomu,          // record of all the right fomula numbers of all recorded distributions
+                NumericVector recIRdistrMonoFomu,       // record of all the mono fomula numbers of all recorded distributions
+                NumericVector recIRdistrIsoFomu,        // record of all the iso fomula numbers of all recorded distributions
                 NumericVector recMonoFomu,              // record of all the fomula numbers of all monoisotopic adducts
-                NumericVector recMonoMainAddFomu,       // record of all the fomula numbers of all monoisotopic adduct's main adducts
-                List recMonoFomuWithInSameComp,         // the fomula numbers of all monoisotopic adducts of each monoisotopic compound (share the same compound)
-                List recMITwithInSameComp,              // the most intense time values of monoisotopic adducts of each monoisotopic compound (share the same compound)
+                NumericVector recAllAddFomu,            // record of all the adducts
+                NumericVector recAllAddComp,            // record of all the compounds of according adducts
+                NumericVector recComp,                  // compound id
                 NumericVector recCompMainAddFomu,       // fomula numbers of the main adducts of compounds
                 List recCompMonoFomu,                   // the monoisotopic adduct fomula numbers of compounds
-                List recCompBioLink,                    // the compound numbers of compounds (linked with biochemical reactions)
+                List recMITwithInSameComp,              // the most intense time values of monoisotopic adducts of each compound (share the same compound)
                 NumericVector massRT,                   // mass retention time values of all the masses
-                List obsFomuRT,                         // storage of observed retention time values of fomulas in this update time
-                NumericVector obsRTfomu,                // the fomula numbers of the observed retention time in this update time
-                List recFomuRT,                         // record all observed retention time values of fomulas
-                NumericVector recRTfomu,                // the fomula numbers of the recorded retention time values
-                List recFomuRTdistr,                    // record all the distributions of retention time values of fomulas
-                NumericVector recRTdistrFomu,           // the fomula numbers of the recorded retention time distributions
+                NumericVector obsCompRT,                // storage of observed retention time values of fomulas in this update time
+                NumericVector obsRTcomp,                // the fomula numbers of the observed retention time in this update time
+                List recCompRT,                         // record all observed retention time values of fomulas
+                NumericVector recRTcomp,                // the fomula numbers of the recorded retention time values
+                List recCompRTdistr,                    // record all the distributions of retention time values of fomulas
+                NumericVector recRTdistrComp,           // the fomula numbers of the recorded retention time distributions
                 double s_pkAdd,                         // update scale(speed) for pkFomu
                 double s_pkComp,                        // update scale(speed) for pkComp
                 double s_ma,                            // update scale for ma (0< <=1)
@@ -312,7 +312,7 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
                 double w_isoLink,                       // weight for isotope connection of of mass when solving overlapped assignment
                 double t_RT,                            // threshold used to count iso and add connection when solving overlapped assignments automatically
                 double t_post,                          // threshold used to filter posterior
-                bool isTest = true                      // is it a test?
+                bool isTest = false                     // is it a test?
 
 ){
   Rcout << " " << std::endl;
@@ -321,8 +321,8 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
 
   NumericVector massSet;                                                  // mass number set after threshold
   NumericVector fomuSet;                                                  // fomula number set after threshold
-  // NumericVector fomuCompIdSet;                                                // fomula id set after threshold
-  int monoAddNum = recMonoFomu.length();                                  // monoisotopic number
+  NumericVector fomuIdSet;                                                // formula id in database set after threshold   
+  // NumericVector fomuCompIdSet;                                         // fomula id set after threshold
   int compNum = pkComp.length();                                          // compound number
 
   // posterior probability matrix iterator creation
@@ -342,7 +342,7 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
       // storage step
       massSet.push_back(rowNum);
       fomuSet.push_back(colNum);
-      // fomuCompIdSet.push_back(fomuCompId.at(colNum));
+      fomuIdSet.push_back(colNameIdx.at(colNum + 1));
     }
   }
 
@@ -356,6 +356,7 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
   arma::rowvec massMZ_rvec = as<arma::rowvec>(massMZ);
   arma::rowvec massRT_rvec = as<arma::rowvec>(massRT);
   arma::rowvec massInt_rvec = as<arma::rowvec>(massInt);
+  arma::rowvec fomuIdSet_rvec = as<arma::rowvec>(fomuIdSet);
   // arma::rowvec fomuCompId_rvec = as<arma::rowvec>(fomuCompId);
   arma::rowvec fomuSetUni_rvec = unique(fomuSet_rvec);
   if(fomuSetUni_rvec.n_elem != fomuSet_rvec.n_elem){
@@ -376,11 +377,12 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
         arma::uvec allFomuIdx_uvec = find_finite(fomuSet_rvec);                     // all idx in fomula row vector
         arma::uvec retainFomuIdx_uvec = SetDiff(allFomuIdx_uvec, dupFomuIdx_uvec);  // the idx of retained fomula (which is also the idx of the retained masses)
         massSet_rvec = massSet_rvec.elem(retainFomuIdx_uvec).t();                   // the retained mass
-        fomuSet_rvec = fomuSet_rvec.elem(retainFomuIdx_uvec).t();                   // the retained formula
-        Rcout<< "0;massSet_rvec" << std::endl;
-        printOutRvec(massSet_rvec);
-        Rcout<< "0;fomuSet_rvec" << std::endl;
-        printOutRvec(fomuSet_rvec);
+        fomuSet_rvec = fomuSet_rvec.elem(retainFomuIdx_uvec).t();                   // the retained formula number
+        fomuIdSet_rvec = fomuIdSet_rvec.elem(retainFomuIdx_uvec).t();               // the retained formula id
+        // Rcout<< "0;massSet_rvec" << std::endl;
+        // printOutRvec(massSet_rvec);
+        // Rcout<< "0;fomuSet_rvec" << std::endl;
+        // printOutRvec(fomuSet_rvec);
       }
     } else if(firstChoice == 1){
       // first get all indices of non-duplicate fomula, pop them into selectedIdx
@@ -395,18 +397,18 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
       }
       for(int i = 0; i < dupFomuUni_uvec.n_elem; i++){
         int dupFomuNum = dupFomuUni_uvec.at(i);                                     // first get one of the duplicate fomula number
-        arma::uvec dupFomuIdx_uvec = arma::find(fomuSet_rvec == dupFomuNum);              // search the idx of the duplicate fomula number in fomula row vector
+        arma::uvec dupFomuIdx_uvec = arma::find(fomuSet_rvec == dupFomuNum);        // search the idx of the duplicate fomula number in fomula row vector
         arma::rowvec dupMasses_rvec = massSet_rvec.elem(dupFomuIdx_uvec).t();       // get the duplicate masses
         arma::uvec dupMasses_uvec = as<arma::uvec>(wrap(dupMasses_rvec));
-        Rcout<< "dupMasses_uvec" << std::endl;
-        printOutUvec(dupMasses_uvec);
+        // Rcout<< "dupMasses_uvec" << std::endl;
+        // printOutUvec(dupMasses_uvec);
         arma::rowvec dupMassesMZ_rvec = massMZ_rvec.elem(dupMasses_uvec).t();       // get the mass accuracy of the duplicate masses
         arma::rowvec dupMassesRT_rvec = massRT_rvec.elem(dupMasses_uvec).t();       // get the retention time of the duplicate masses
-        Rcout<< "dupMassesMZ_rvec" << std::endl;
-        printOutRvec(dupMassesMZ_rvec);
-        Rcout<< "dupMassesRT_rvec" << std::endl;
-        printOutRvec(dupMassesRT_rvec);
-        int select_mass = MsgAndChoiceOfMasses(dupFomuNum, dupMasses_rvec, dupMassesMZ_rvec, dupMassesRT_rvec);
+        // Rcout<< "dupMassesMZ_rvec" << std::endl;
+        // printOutRvec(dupMassesMZ_rvec);
+        // Rcout<< "dupMassesRT_rvec" << std::endl;
+        // printOutRvec(dupMassesRT_rvec);
+        int select_mass = MsgAndChoiceOfMasses(colNameIdx.at(dupFomuNum), dupMasses_rvec, dupMassesMZ_rvec, dupMassesRT_rvec);
         if (select_mass != -1){
           arma::uvec selectMassIdx_uvec = arma::find(dupMasses_rvec == select_mass);
           selectedIdx.push_back(dupFomuIdx_uvec.at(selectMassIdx_uvec.at(0)));        // push back the index 
@@ -415,11 +417,12 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
       }
       arma::uvec selectedIdx_uvec = as<arma::uvec>(selectedIdx);
       massSet_rvec = massSet_rvec.elem(selectedIdx_uvec).t();                   // the retained mass
-      fomuSet_rvec = fomuSet_rvec.elem(selectedIdx_uvec).t();                   // the retained formula
-      Rcout<< "1;massSet_rvec" << std::endl;
-      printOutRvec(massSet_rvec);
-      Rcout<< "1;fomuSet_rvec" << std::endl;
-      printOutRvec(fomuSet_rvec);
+      fomuSet_rvec = fomuSet_rvec.elem(selectedIdx_uvec).t();                   // the retained formula num
+      fomuIdSet_rvec = fomuIdSet_rvec.elem(selectedIdx_uvec).t();               // the retained formula id
+      // Rcout<< "1;massSet_rvec" << std::endl;
+      // printOutRvec(massSet_rvec);
+      // Rcout<< "1;fomuSet_rvec" << std::endl;
+      // printOutRvec(fomuSet_rvec);
     } else{
       MsgWhenChooseSoftwareHelp();
 
@@ -441,9 +444,9 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
       
       // then select mass of every duplicate fomula, pop the index into selectedIdx
       for(int i =0; i < dupFomuUni_uvec.n_elem; i++){
-        int dupFomuNum = dupFomuUni_uvec.at(i);                                   // first get one of the duplicate fomula number
+        int dupFomuNum = dupFomuUni_uvec.at(i);                                         // first get one of the duplicate fomula number
         arma::uvec dupFomuIdx_uvec = arma::find(fomuSet_rvec == dupFomuNum);            // search the idx of the duplicate fomula number in fomula row vector
-        arma::rowvec dupSubMassSet_rvec = massSet_rvec.elem(dupFomuIdx_uvec).t(); // get duplicated masses
+        arma::rowvec dupSubMassSet_rvec = massSet_rvec.elem(dupFomuIdx_uvec).t();       // get duplicated masses
         
         // now we have the sub duplicated set of masses/fomula from each fomula's all assignments, the next is to perform score criterion and automatic select the mass with the highest score
         // prepare some data which will used in scoring
@@ -465,45 +468,43 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
           dupSubMassRTset.push_back(RTvalue);
           int isoLink = CountLinkInSpMatRow(iso_spMat, dupFomuNum, dupFomuUni_uvec, fomuSet_rvec, massSet_rvec, massRT_rvec, RTvalue, t_RT);
           int addLink = CountLinkInSpMatRow(add_spMat, dupFomuNum, dupFomuUni_uvec, fomuSet_rvec, massSet_rvec, massRT_rvec, RTvalue, t_RT);
-          // int addLink = 0;
           dupSubIsoLink.push_back(isoLink);
           dupSubAddLink.push_back(addLink);
         }
 
         arma::rowvec dupSubMassIntSet_rvec = as<arma::rowvec>(dupSubMassIntSet);
         arma::rowvec dupSubMAset_rvec = as<arma::rowvec>(dupSubMAset);
-        // arma::rowvec dupSubMassRTset_rvec = as<arma::rowvec>(dupSubMassRTset);
-        Rcout<< "dupSubMassSet_rvec" <<std::endl;
-        printOutRvec(dupSubMassSet_rvec);
+        // Rcout<< "dupSubMassSet_rvec" <<std::endl;
+        // printOutRvec(dupSubMassSet_rvec);
         // rule I: prefer assignments in which the masses show higher intensities
         double maxInt = arma::max(dupSubMassIntSet_rvec);
         arma::uvec dupSubMaxIntIdx = arma::find(dupSubMassIntSet_rvec == maxInt);
         dupSubScore_rvec.elem(dupSubMaxIntIdx) += w_int;       // score add
-        Rcout<< "dupSubMaxIntIdx" <<std::endl;
-        printOutUvec(dupSubMaxIntIdx);
+        // Rcout<< "dupSubMaxIntIdx" <<std::endl;
+        // printOutUvec(dupSubMaxIntIdx);
         
         // rule II: prefer assignments in which detecting lower massaccuracies
         double minMA = arma::min(dupSubMAset_rvec);
         arma::uvec dupSubMinMAidx = arma::find(dupSubMAset_rvec == minMA);
         dupSubScore_rvec.elem(dupSubMinMAidx) += w_ma;       // score add
-        Rcout<< "dupSubMinMAidx" <<std::endl;
-        printOutUvec(dupSubMinMAidx);
+        // Rcout<< "dupSubMinMAidx" <<std::endl;
+        // printOutUvec(dupSubMinMAidx);
 
         // rule III: prefer assignments in which more isotope connections are found based on the mass retention times
         arma::rowvec dupSubIsoLink_rvec = as<arma::rowvec>(dupSubIsoLink);
         double maxIsoLink = arma::max(dupSubIsoLink_rvec);
         arma::uvec dupSubMaxIsoLink = arma::find(dupSubIsoLink_rvec == maxIsoLink);
         dupSubScore_rvec.elem(dupSubMaxIsoLink) += w_isoLink;    // score add
-        Rcout<< "dupSubMaxIsoLink" <<std::endl;
-        printOutUvec(dupSubMaxIsoLink);
+        // Rcout<< "dupSubMaxIsoLink" <<std::endl;
+        // printOutUvec(dupSubMaxIsoLink);
         
         // rule IV: prefer assignments in which more adduct connections are found based on the mass retention times
         arma::rowvec dupSubAddLink_rvec = as<arma::rowvec>(dupSubAddLink);
         double maxAddLink = arma::max(dupSubAddLink_rvec);
         arma::uvec dupSubMaxAddLink = arma::find(dupSubAddLink_rvec == maxAddLink);
         dupSubScore_rvec.elem(dupSubMaxAddLink) += w_addLink;       // score add
-        Rcout<< "dupSubMaxAddLink" <<std::endl;
-        printOutUvec(dupSubMaxAddLink);
+        // Rcout<< "dupSubMaxAddLink" <<std::endl;
+        // printOutUvec(dupSubMaxAddLink);
         
         // after thresholded by three rules, perform automatic selection of mass in the subvec of duplicate assignments by the final score
         // dupSubScore_rvec, dupSubFomuSet_rvec, dupSubMassSet_rvec, dupFomuIdx_uvec
@@ -520,7 +521,7 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
           arma::rowvec manualDupMassMZ_rvec = massMZ_rvec.elem(manualDupMass_uvec).t();       // get the mass accuracy of the duplicate masses
           arma::rowvec manualDupMassRT_rvec = massRT_rvec.elem(manualDupMass_uvec).t();       // get the retention time of the duplicate masses
           if(!isTest){
-            select_mass = MsgAndChoiceOfMasses(dupFomuNum, manualDupMass_rvec, manualDupMassMZ_rvec, manualDupMassRT_rvec);
+            select_mass = MsgAndChoiceOfMasses(colNameIdx.at(dupFomuNum), manualDupMass_rvec, manualDupMassMZ_rvec, manualDupMassRT_rvec);
           }
           if(select_mass != -1){                                                                              
             arma::uvec selectMassFind_uvec = arma::find(manualDupMass_rvec == select_mass);
@@ -530,12 +531,13 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
         }
       }
       arma::uvec selectedIdx_uvec = as<arma::uvec>(selectedIdx);
-      fomuSet_rvec = fomuSet_rvec.elem(selectedIdx_uvec).t();                       // filtered fomula set
+      fomuSet_rvec = fomuSet_rvec.elem(selectedIdx_uvec).t();                       // filtered fomula num set
+      fomuIdSet_rvec = fomuIdSet_rvec.elem(selectedIdx_uvec).t();                   // the retained formula id
       massSet_rvec = massSet_rvec.elem(selectedIdx_uvec).t();                       // filtered mass set
-      Rcout<< "2;massSet_rvec" << std::endl;
-      printOutRvec(massSet_rvec);
-      Rcout<< "2;fomuSet_rvec" << std::endl;
-      printOutRvec(fomuSet_rvec);
+      // Rcout<< "2;massSet_rvec" << std::endl;
+      // printOutRvec(massSet_rvec);
+      // Rcout<< "2;fomuSet_rvec" << std::endl;
+      // printOutRvec(fomuSet_rvec);
     }
   }
 
@@ -544,106 +546,109 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
   Rcout << " " << std::endl;
   // based on assignment pair after thresholding posterior probability matrix:
   // which are: mass numbers and fomula numbers,
-  // do: update prior knowledge (both for fomula and compound),
+  // do: update prior knowledge,
   //     record all observed mass accuracies in this update time before updating mass accuracy
-  //     and record all observed intensity ratios of observed isotope pairs in this update time before updating iso matrix
+  //     and record all observed intensity ratios of observed isotope pairs in this update time before updating iso
   Rcout << " " << std::endl;
   Rcout << ">>>>>>>>>>>>>>>>>>>>>>>START RECORD OBSERVED MASS ACCURACIES, RETENTION TIME AND INTENSITY RATIOS;" << std::endl;
-  Rcout << "                       UPDATE MOST INTENSE TIME TO PREPARE MAIN ADDUCT SHUFFLE, AND UPDATE PRIOR KNOWLEDGE" << std::endl;
+  Rcout << "                       UPDATE MOST INTENSE TIME TO PREPARE MAIN ADDUCT SHUFFLE, AND UPDATE FORMULA PRIOR KNOWLEDGE" << std::endl;
   Rcout << " " << std::endl;
   arma::rowvec pkFomu_rvec = as<arma::rowvec>(pkFomu);                                                  // prior knowledge of all the fomulas
-  arma::rowvec pkComp_rvec = as<arma::rowvec>(pkComp);                                                  // prior knowledge of all the compounds
-  arma::rowvec obsRTfomu_rvec = as<arma::rowvec>(obsRTfomu);                                            // fomula numbers of observed retention times
-  arma::rowvec obsIRlFomu_rvec = as<arma::rowvec>(obsIRlFomu);                                          // left part of fomula numbers of observed intensity values
-  arma::rowvec obsIRrFomu_rvec = as<arma::rowvec>(obsIRrFomu);                                          // right part of fomula numbers of observed intensity values
-  arma::uvec fomuSet_uvec = as<arma::uvec>(wrap(fomuSet_rvec));
-
-  // update compound prior knowledge
-  arma::uvec compMainAdd_uvec = as<arma::uvec>(recCompMainAddFomu);                                           // fomula numbers of all the compound main adducts
-  arma::uvec compMainAddFind_uvec = arma::intersect(compMainAdd_uvec, fomuSet_uvec);                       // we want to see how many compound main adducts survive after thresholding the posterior matrix
-  if(!compMainAddFind_uvec.is_empty()){
-    // if any compound main adducts survive, update compound prior knowledge
-    for(int i = 0; i < compMainAddFind_uvec.n_elem; i++){
-      int compMainAddFomuNum = compMainAddFind_uvec.at(i);
-      pkComp_rvec = UpdateCompPriorKnowledge(pkComp_rvec, arma::find(compMainAdd_uvec == compMainAddFomuNum), s_pkComp);
+  arma::rowvec obsIRmonoFomu_rvec = as<arma::rowvec>(obsIRmonoFomu);                                    // mono fomula numbers of observed intensity values
+  arma::rowvec obsIRisoFomu_rvec = as<arma::rowvec>(obsIRisoFomu);                                      // iso fomula numbers of observed intensity values
+  arma::uvec fomuIdSet_uvec = as<arma::uvec>(wrap(fomuIdSet_rvec));
+  arma::rowvec recMonoFomu_rvec = as<arma::rowvec>(recMonoFomu);  
+  arma::rowvec recAllAddFomu_rvec = as<arma::rowvec>(recAllAddFomu);
+  NumericVector obsRTvalues;
+  NumericVector obsRTcompIds;
+  
+  // update compound prior knowledge: 1st part
+  arma::uvec compMainAdd_uvec = as<arma::uvec>(recCompMainAddFomu);                                     // fomula numbers of all the compound main adducts
+  arma::uvec compMainAddIntsc_uvec = arma::intersect(compMainAdd_uvec, fomuIdSet_uvec);                  // we want to see how many compound main adducts survive after thresholding the posterior matrix
+  arma::rowvec compPriorMark_rvec = arma::zeros<arma::rowvec>(compNum);
+  if(!compMainAddIntsc_uvec.is_empty()){
+    // if any compound main adducts survive, set a mark
+    for(int i = 0; i < compMainAddIntsc_uvec.n_elem; i++){
+      int compMainAddFomuId = compMainAddIntsc_uvec.at(i);
+      arma::uvec findcompMain_uvec = arma::find(compMainAdd_uvec == compMainAddFomuId);
+      compPriorMark_rvec.at(findcompMain_uvec.at(0)) += 1;
     }
   }
-
   for(int i = 0; i < fomuSet_rvec.n_elem; i++){                                                            // iterate on thresholded fomula numbers
     // after detect and fix overlap assignments, Update fomula Prior Knowledge
-    int theLeftFomuNum = fomuSet_rvec.at(i);                                                               // first time loop, take the value as left part
-    int theLeftMassNum = massSet_rvec.at(i);                                                               // first time loop, take the value as left part
+    int theLeftFomuNum = fomuSet_rvec.at(i);                                                                
+    int theLeftMassNum = massSet_rvec.at(i);                                                                 
+    int theLeftFomuId = fomuIdSet_rvec.at(i);
     pkFomu_rvec.at(theLeftFomuNum) = UpdateAddPriorKnowledge(pkFomu_rvec.at(theLeftFomuNum), s_pkAdd);     // update fomula prior knowledge
-
+    
     // calculate and record observed mass accuracies (negative values allowed)
     double maValue = ((massMZ[theLeftMassNum] - fomuMZ[theLeftFomuNum]) * 1e6 ) / fomuMZ[theLeftFomuNum];
     obsMA.push_back(maValue);
     recMA.push_back(maValue);
-
+    
     // record observed retention times
-    double rtValue = massRT(theLeftMassNum);
-
-    // check if we observed other retention time of this fomula number before
-    // if we have not observed before, push_back retention time value, and push_back the fomula number
-    // else we pop the retention time value into the same position we find it, no need to pop_up the compound time cause we have already seen it in obsRTfomu_rvec
-    arma::uvec obsRTFomuFind_uvec = arma::find(obsRTfomu_rvec == theLeftFomuNum);
-    if(obsRTFomuFind_uvec.is_empty()){
-      NumericVector rt;
-      rt.push_back(rtValue);
-      obsFomuRT.push_back(rt);
-      recFomuRT.push_back(rt);
-      recRTfomu.push_back(theLeftFomuNum);
-      obsRTfomu.push_back(theLeftFomuNum);
-    } else{
-      int obsRTFomuNum = obsRTFomuFind_uvec.at(0);
-      NumericVector obsRTsub = obsFomuRT[obsRTFomuNum];
-      NumericVector recRTsub = recFomuRT[obsRTFomuNum];
-      obsRTsub.push_back(rtValue);
-      recRTsub.push_back(rtValue);
-      obsFomuRT[obsRTFomuNum] = obsRTsub;
-      recFomuRT[obsRTFomuNum] = recRTsub;
+    arma::uvec findAddId_uvec = arma::find(recAllAddFomu_rvec == theLeftFomuId);
+    if(!findAddId_uvec.is_empty()){
+      obsRTcompIds.push_back(recAllAddComp.at(findAddId_uvec.at(0)));
+      obsRTvalues.push_back(massRT(theLeftMassNum));
     }
-
+    
     // record the observed intensity ratios before updating iso matrix, we use another iteration of fomuSet_rvec to create isotope pairs
     for(int j = 0; j < fomuSet_rvec.n_elem; j++){
       // generate the right part of fomula numbers which will be used as indices to record intensity ratios
       // and generate the right part of masses which will be used as indices to calculate observed intensity ratios
-      int theFomuRight = fomuSet_rvec.at(j);
-      int theMassRight = massSet_rvec.at(j);
+      int theRightFomuNum = fomuSet_rvec.at(j);
+      int theRightMassNum = massSet_rvec.at(j);
+      int theRightFomuId = fomuIdSet_rvec.at(j);
 
       // next is to combine the fomula number pair as isotope pair, use mass number pair to compute isotope ratio
       // and complete the storage task before update
       // about the next line judgement code: here we decrease the computational complexity in the second iteration, actually I iterate half, as you can see from the condition in the next if() statement
       //                                     & the condition also considerds that only the fomula which is an isotope pair can be applied in the following task
-      if((theLeftFomuNum < theFomuRight) && (iso_spMat.at(theLeftFomuNum,theFomuRight) != 0)){
-        double theIRvalue_LR = massInt_rvec.at(theLeftMassNum) / massInt_rvec.at(theMassRight);              // isotope ratio (Left part to right part)
-        double theIRvalue_RL = 1 / theIRvalue_LR;                                                                 // isotope ratio (right part to left part)
-        // we want to know if we have recorded any isotope ratios of this fomula pair before
-        // so we take the intersect
-        arma::uvec obsIRlFomuFind_uvec = arma::find(obsIRlFomu_rvec == theLeftFomuNum);
-        arma::uvec obsIRrFomuFind_uvec = arma::find(obsIRrFomu_rvec == theFomuRight);
-        arma::uvec obsIRisoFind_uvec = arma::intersect(obsIRlFomuFind_uvec, obsIRrFomuFind_uvec);
-        // if we have not recorded the observed isotope ratio of this fomula number pair before, we push_back those value and indices
-        // else we pop the value into the same position we find it, but we don't pop the indices in this situation cause the indices are already existed
-        if(obsIRisoFind_uvec.is_empty()){
-          NumericVector obsIRlSub;
-          NumericVector obsIRrSub;
-          obsIRlSub.push_back(theIRvalue_LR);
-          obsIRrSub.push_back(theIRvalue_RL);
-          obsIR.push_back(obsIRlSub);
-          obsIR.push_back(obsIRrSub);
-          obsIRlFomu.push_back(theLeftFomuNum);
-          obsIRlFomu.push_back(theFomuRight);
-          obsIRrFomu.push_back(theFomuRight);
-          obsIRrFomu.push_back(theLeftFomuNum);
-        } else{    // already spoken situation that fomula number pair is already recorded
-          int obsIRisoFind = obsIRisoFind_uvec.at(0);
-          NumericVector obsIRlSub = obsIR[obsIRisoFind];
-          NumericVector obsIRrSub = obsIR[obsIRisoFind + 1];
-          obsIRlSub.push_back(theIRvalue_LR);
-          obsIRrSub.push_back(theIRvalue_RL);
-          obsIR[obsIRisoFind] = obsIRlSub;
-          obsIR[obsIRisoFind + 1] = obsIRrSub;
+      if((iso_spMat.at(theLeftFomuNum, theRightFomuNum) != 0)){
+        arma::uvec findmonoAdd = arma::find(recMonoFomu_rvec == theLeftFomuId);
+        if (findmonoAdd.is_empty()){
+          double theIRvalue = massInt_rvec.at(theRightMassNum) / massInt_rvec.at(theLeftMassNum);              // isotope ratio
+          // we want to know if we have observed any isotope ratios of this fomula pair before
+          // so we take the intersect
+          arma::uvec obsIRmonoFomuFind_uvec = arma::find(obsIRmonoFomu_rvec == theRightFomuId);
+          arma::uvec obsIRisoFomuFind_uvec = arma::find(obsIRisoFomu_rvec == theLeftFomuId);
+          arma::uvec obsIRisoFind_uvec = arma::intersect(obsIRmonoFomuFind_uvec, obsIRisoFomuFind_uvec);
+          // if we have not recorded the observed isotope ratio of this fomula number pair before, we push_back those value and indices
+          // else we pop the value into the same position we find it, but we don't pop the indices in this situation cause the indices are already existed
+          if(obsIRisoFind_uvec.is_empty()){
+            NumericVector obsIRSub;
+            obsIRSub.push_back(theIRvalue);
+            obsIR.push_back(theIRvalue);
+            obsIRmonoFomu.push_back(theRightFomuId);
+            obsIRisoFomu.push_back(theLeftFomuId);
+          } else{            // already spoken situation that fomula number pair is already recorded
+            int obsIRisoFind = obsIRisoFind_uvec.at(0);
+            NumericVector obsIRSub = obsIR[obsIRisoFind];
+            obsIRSub.push_back(theIRvalue);
+            obsIR[obsIRisoFind] = obsIRSub;
+          }
+        } else{
+          double theIRvalue = massInt_rvec.at(theLeftMassNum) / massInt_rvec.at(theRightMassNum);              // isotope ratio
+          // we want to know if we have recorded any isotope ratios of this fomula pair before
+          // so we take the intersect
+          arma::uvec obsIRmonoFomuFind_uvec = arma::find(obsIRmonoFomu_rvec == theLeftFomuId);
+          arma::uvec obsIRisoFomuFind_uvec = arma::find(obsIRisoFomu_rvec == theRightFomuId);
+          arma::uvec obsIRisoFind_uvec = arma::intersect(obsIRmonoFomuFind_uvec, obsIRisoFomuFind_uvec);
+          // if we have not recorded the observed isotope ratio of this fomula number pair before, we push_back those value and indices
+          // else we pop the value into the same position we find it, but we don't pop the indices in this situation cause the indices are already existed
+          if(obsIRisoFind_uvec.is_empty()){
+            NumericVector obsIRSub;
+            obsIRSub.push_back(theIRvalue);
+            obsIR.push_back(obsIRSub);
+            obsIRmonoFomu.push_back(theLeftFomuId);
+            obsIRisoFomu.push_back(theRightFomuId);
+          } else{           // already spoken situation that fomula number pair is already recorded
+            int obsIRisoFind = obsIRisoFind_uvec.at(0);
+            NumericVector obsIRSub = obsIR[obsIRisoFind];
+            obsIRSub.push_back(theIRvalue);
+            obsIR[obsIRisoFind] = obsIRSub;
+          }
         }
       }
     }
@@ -653,31 +658,29 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
   Rcout << ">>>>>>>>>>>>>>>>>>>>>>>UPDATE OBSERVED MOST INTENSE TIME VALUES OF MONOISOTOPIC ADDUCTS" << std::endl;
   Rcout << " " << std::endl;
   // update recorded most intense time values of each monoisotopic adduct
-  for(int i = 0; i < recMonoFomu.length(); i++){
+  for(int i = 0; i < recComp.length(); i++){
     // get all other adducts connected with this monoisotopic adduct (linked by the same compound)
-    NumericVector monoAddWithInSameComp = recMonoFomuWithInSameComp.at(i);                            // get all adducts except isotopes of this monoisotopic adduct
-    arma::uvec monoAddWithInSameComp_uvec = as<arma::uvec>(monoAddWithInSameComp);
+    NumericVector recMonoWithInSameComp = recCompMonoFomu.at(i);                            // get all adducts except isotopes with in this compound
+    arma::uvec recMonoWithInSameComp_uvec = as<arma::uvec>(recMonoWithInSameComp);
 
     // next: decide which one is the most intense, and update the most intense time in recMITwithInSameComp
-    if(!monoAddWithInSameComp_uvec.is_empty()){
-      NumericVector monoAddInt;
-      NumericVector monoAddIdx;
-      arma::uvec monoAddAllIdx = find_finite(monoAddWithInSameComp_uvec.t());
-      for(int j = 0; j < monoAddWithInSameComp_uvec.n_elem; j++){                            // iterate on all "other" monoisotopic adducts
-        int MonoAddFomuNum = monoAddWithInSameComp_uvec.at(j);
-        arma::uvec MonoAddIdxInFomu_uvec = arma::find(fomuSet_rvec == MonoAddFomuNum);
-        if(!MonoAddIdxInFomu_uvec.is_empty()){
-          int MonoAddIdxInFomu = MonoAddIdxInFomu_uvec.at(0);
-          int MonoAddMassNum = massSet_rvec.at(MonoAddIdxInFomu);
-          monoAddInt.push_back(massInt_rvec.at(MonoAddMassNum));
-          monoAddIdx.push_back(monoAddAllIdx.at(j));
-        }
-      }
-      // based on actuMonoAdd_addIdx and actuMonoAdd_addInt, update recMITwithInSameComp
-      if(monoAddIdx.length() != 0){
-        arma::rowvec monoAdd_addInt_rvec = as<arma::rowvec>(monoAddInt);
-        recMITwithInSameComp.at(i) = UpdateAddMostIntTime(monoAddIdx, monoAdd_addInt_rvec, recMITwithInSameComp.at(i));
-      }
+    NumericVector monoAddInt;
+    NumericVector monoAddIdx;
+    arma::uvec monoAddAllIdx = find_finite(recMonoWithInSameComp_uvec.t());
+    for(int j = 0; j < recMonoWithInSameComp_uvec.n_elem; j++){                            // iterate on all monoisotopic adducts
+      int monoAddFomuId = recMonoWithInSameComp_uvec.at(j);
+      arma::uvec findMonoAddId_uvec = arma::find(fomuIdSet_rvec == monoAddFomuId);
+      if(!findMonoAddId_uvec.is_empty()){
+        int monoAddIdxInFomu = findMonoAddId_uvec.at(0);
+        int monoAddMassNum = massSet_rvec.at(monoAddIdxInFomu);
+        monoAddInt.push_back(massInt_rvec.at(monoAddMassNum));
+        monoAddIdx.push_back(monoAddAllIdx.at(j));
+      } 
+    }
+    // based on monoAddInt and monoAddIdx, update recMITwithInSameComp
+    if(monoAddIdx.length() != 0){
+      arma::rowvec monoAddInt_rvec = as<arma::rowvec>(monoAddInt);
+      recMITwithInSameComp.at(i) = UpdateAddMostIntTime(monoAddIdx, monoAddInt_rvec, recMITwithInSameComp.at(i));
     }
   }
 
@@ -700,7 +703,7 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
       obsMA = tmp;
     }
   } else{                                                                       // if we have recorded any distribution of mass accuracy before
-    if(obsMA_rvec.n_elem > 1){                                                  // if have observed one mass accuracy value in this update time, then we can update the distribution of mass accuracy
+    if(obsMA_rvec.n_elem >= 1){                                                  // if have observed one mass accuracy value in this update time, then we can update the distribution of mass accuracy
       double ma_mean = arma::mean(arma::abs(obsMA_rvec));
       double ma_std = arma::stddev(arma::abs(obsMA_rvec));
       double ma_num = obsMA_rvec.n_elem;
@@ -715,294 +718,248 @@ List UpdateMain(arma::sp_mat post_spMat,                // posterior matrix
   Rcout << ">>>>>>>>>>>>>>>>>>>>>>>START TO UPDATE ISOTOPE CONNECTIVITIES" << std::endl;
   Rcout << " " << std::endl;
   // update iso observed intensity ratios (if not enough number to build distributions), distribution information and iso connectivity matrix
-  arma::rowvec obsNewIRlFomu_rvec = as<arma::rowvec>(obsIRlFomu);              // left part of the observed isotope pairs
-  arma::rowvec obsNewIRrFomu_rvec = as<arma::rowvec>(obsIRrFomu);              // right part of the observed isotope pairs
-  arma::rowvec recIRdistrLFomu_rvec = as<arma::rowvec>(recIRdistrLFomu);       // left part of the recorded isotope pairs (of the recorded distribution information)
-  arma::rowvec recIRdistrRFomu_rvec = as<arma::rowvec>(recIRdistrRFomu);       // right part of the recorded isotope pairs (of the recorded distribution information)
+  arma::rowvec obsNewIRmonoFomu_rvec = as<arma::rowvec>(obsIRmonoFomu);            // mono part of the observed isotope pairs
+  arma::rowvec obsNewIRisoFomu_rvec = as<arma::rowvec>(obsIRisoFomu);              // iso part of the observed isotope pairs
+  arma::rowvec recIRdistrMonoFomu_rvec = as<arma::rowvec>(recIRdistrMonoFomu);     // mono part of the recorded isotope pairs (of the recorded distribution information)
+  arma::rowvec recIRdistrIsoFomu_rvec = as<arma::rowvec>(recIRdistrIsoFomu);       // iso part of the recorded isotope pairs (of the recorded distribution information)
+  NumericVector newIRmonoFomu;
+  NumericVector newIRisoFomu;
+  NumericVector newIRirValue;
   IntegerVector remIRidx;
   // iterate on all observed isotope pairs,
   // the idea is to find out if the observed isotope pair is already found in the isotope pairs of recorded distribution information about intensity ratios
-  for(int i = 0; i < obsNewIRlFomu_rvec.n_elem; i = i + 2){                    // as you can see here we decrease the computational complexity
-    int obsIRlFomuNum = obsNewIRlFomu_rvec.at(i);
-    int obsIRrFomuNum = obsNewIRrFomu_rvec.at(i);
-    NumericVector theIRvalue_LR = obsIR[i];                                    // the intensity ratio_left part right part
-    NumericVector theIRvalue_RL = obsIR[i + 1];                                // the intensity ratio_right part left part
-    arma::uvec recIRdistrLFomuFind_uvec = arma::find(recIRdistrLFomu_rvec == obsIRlFomuNum);
-    arma::uvec recIRdistrRFomuFind_uvec = arma::find(recIRdistrRFomu_rvec == obsIRrFomuNum);
-    arma::uvec recIRdistrIsoFind_uvec = arma::intersect(recIRdistrLFomuFind_uvec, recIRdistrRFomuFind_uvec);
-    // if we have not recorded the distribution information of this observed fomula number pair before,
-    // we can push_back the first distribution information of this observed fomula number pair and the indices
-    // only if record more than 2 intensity ratios
-    if(recIRdistrIsoFind_uvec.n_elem == 0){
-      if(theIRvalue_LR.length() > 1){
-        List theIRvalueDistr_LR;
-        List theIRvalueDistr_RL;
-        NumericVector theIRlogValue_LR = log(theIRvalue_LR);
-        NumericVector theIRlogValue_RL = log(theIRvalue_RL);
-        arma::rowvec theIRlogValue_LR_rvec = as<arma::rowvec>(theIRlogValue_LR);
-        arma::rowvec theIRlogValue_RL_rvec = as<arma::rowvec>(theIRlogValue_RL);
+  for(int i = 0; i < obsNewIRmonoFomu_rvec.n_elem; i++){
+    int obsIRmonoFomuId = obsNewIRmonoFomu_rvec.at(i);
+    int obsIRisoFomuId = obsNewIRisoFomu_rvec.at(i);
+    NumericVector theIRvalue = obsIR[i];                                    // the intensity ratio
+    arma::uvec recIRdistrMonoFomuFind_uvec = arma::find(recIRdistrMonoFomu_rvec == obsIRmonoFomuId);
+    arma::uvec recIRdistrIsoFomuFind_uvec = arma::find(recIRdistrIsoFomu_rvec == obsIRisoFomuId);
+    arma::uvec recIRdistrIsoFind_uvec = arma::intersect(recIRdistrMonoFomuFind_uvec, recIRdistrIsoFomuFind_uvec);
+    // if we have not recorded the distribution information of this observed mono-iso pair before,
+    // we can push_back the first distribution information of this observed mono-iso pair and the indices
+    // only if observed more than 2 intensity ratios
+    if(recIRdistrIsoFind_uvec.n_elem == 0){ 
+      if(theIRvalue.length() > 1){
+        List theIRvalueDistr;
+        NumericVector theIRlogValue = log(theIRvalue);
+        arma::rowvec theIRlogValue_rvec = as<arma::rowvec>(theIRlogValue);
         // calculate IR numbers, mean and std value for this isotope pair for the first time
-        double theIRvalue_LR_mean = GeoMean(theIRvalue_LR.at(0), theIRvalue_LR.at(1));
-        double theIRvalue_LR_logMean = mean(theIRlogValue_LR);
-        double theIRvalue_LR_std = GeoStd(theIRvalue_LR);
-        double theIRvalue_LR_logStd = arma::stddev(theIRlogValue_LR_rvec);
-        double theIRvalue_RL_mean = GeoMean(theIRvalue_RL.at(0), theIRvalue_RL.at(1));
-        double theIRvalue_RL_logMean = mean(theIRlogValue_RL);
-        double theIRvalue_RL_std = GeoStd(theIRvalue_RL);
-        double theIRvalue_RL_logStd = arma::stddev(theIRlogValue_RL_rvec);
+        double theIRvalue_mean = GeoMean(theIRvalue.at(0), theIRvalue.at(1));
+        double theIRvalue_logMean = mean(theIRlogValue);
+        double theIRvalue_std = GeoStd(theIRvalue);
+        double theIRvalue_logStd = arma::stddev(theIRlogValue_rvec);
         double theIRvalue_num = 2;
-        theIRvalueDistr_LR["iso_num"] = theIRvalue_num;
-        theIRvalueDistr_LR["iso_mean"] = theIRvalue_LR_mean;
-        theIRvalueDistr_LR["iso_logMean"] = theIRvalue_LR_logMean;
-        theIRvalueDistr_LR["iso_std"] = theIRvalue_LR_std;
-        theIRvalueDistr_LR["iso_logStd"] = theIRvalue_LR_logStd;
-        theIRvalueDistr_RL["iso_num"] = theIRvalue_num;
-        theIRvalueDistr_RL["iso_mean"] = theIRvalue_RL_mean;
-        theIRvalueDistr_RL["iso_logMean"] = theIRvalue_RL_logMean;
-        theIRvalueDistr_RL["iso_std"] = theIRvalue_RL_std;
-        theIRvalueDistr_RL["iso_logStd"] = theIRvalue_RL_logStd;
-        recIRdistr.push_back(theIRvalueDistr_LR);
-        recIRdistr.push_back(theIRvalueDistr_RL);
-        recIRdistrLFomu.push_back(obsIRlFomuNum);
-        recIRdistrLFomu.push_back(obsIRrFomuNum);
-        recIRdistrRFomu.push_back(obsIRrFomuNum);
-        recIRdistrRFomu.push_back(obsIRlFomuNum);
+        theIRvalueDistr["iso_num"] = theIRvalue_num;
+        theIRvalueDistr["iso_mean"] = theIRvalue_mean;
+        theIRvalueDistr["iso_logMean"] = theIRvalue_logMean;
+        theIRvalueDistr["iso_std"] = theIRvalue_std;
+        theIRvalueDistr["iso_logStd"] = theIRvalue_logStd;
+        recIRdistr.push_back(theIRvalueDistr);
+        recIRdistrMonoFomu.push_back(obsIRmonoFomuId);
+        recIRdistrIsoFomu.push_back(obsIRisoFomuId);
 
-        // update iso matrix
-        double oldIntValueLR = iso_spMat.at(obsIRlFomuNum, obsIRrFomuNum);
-        double oldIntValueRL = iso_spMat.at(obsIRrFomuNum, obsIRlFomuNum);
-        iso_spMat.at(obsIRlFomuNum, obsIRrFomuNum) = UpdateIso(oldIntValueLR, theIRvalue_LR_mean, s_iso);
-        iso_spMat.at(obsIRrFomuNum, obsIRlFomuNum) = UpdateIso(oldIntValueRL, theIRvalue_RL_mean, s_iso);
-
-        // record the data indices
+        // record the mono-iso pairs in which the intensity ratio needs update
+        newIRmonoFomu.push_back(obsIRmonoFomuId);
+        newIRisoFomu.push_back(obsIRisoFomuId);
+        arma::uvec findMonoFomuId_uvec = arma::find(fomuIdSet_rvec == obsIRmonoFomuId);
+        arma::uvec findIsoFomuId_uvec = arma::find(fomuIdSet_rvec == obsIRisoFomuId);
+        double oldIRvalue = iso_spMat.at(fomuSet_rvec.at(findMonoFomuId_uvec.at(0)), fomuSet_rvec.at(findIsoFomuId_uvec.at(0)));
+        newIRirValue.push_back(UpdateIR(oldIRvalue, theIRvalue_mean, s_iso));
         remIRidx.push_back(i);
-        remIRidx.push_back(i + 1);
       }
     } else{
-      // if we have recorded the distribution information of this observed fomula number pair before,
+      // if we have recorded the distribution information of this observed mono-iso pair before,
       // we pop the distribution information into the same position we find it,
       // but we don't pop the indices in this situation cause the indices are already existed
       int recIRdistrIsoIdx = recIRdistrIsoFind_uvec.at(0);
-      double theIRvalue_LR_mean = theIRvalue_LR.at(0);
-      double theIRvalue_RL_mean = theIRvalue_RL.at(0);
+      double theIRvalue_mean = theIRvalue.at(0);
 
       // update distribution information
-      recIRdistr[recIRdistrIsoIdx] = UpdateIsoInfo(recIRdistr[recIRdistrIsoIdx], theIRvalue_LR_mean, log(theIRvalue_LR_mean), 0, 1);
-      recIRdistr[recIRdistrIsoIdx + 1] = UpdateIsoInfo(recIRdistr[recIRdistrIsoIdx + 1], theIRvalue_RL_mean, log(theIRvalue_RL_mean), 0, 1);
+      recIRdistr[recIRdistrIsoIdx] = UpdateIsoInfo(recIRdistr[recIRdistrIsoIdx], theIRvalue_mean, log(theIRvalue_mean), 0, 1);
 
       // get new intensity ratio mean value
-      List theIRvalueDistr_LR = recIRdistr[recIRdistrIsoIdx];
-      List theIRvalueDistr_RL = recIRdistr[recIRdistrIsoIdx + 1];
-      theIRvalue_LR_mean = theIRvalueDistr_LR["iso_mean"];
-      theIRvalue_RL_mean = theIRvalueDistr_RL["iso_mean"];
+      List theIRvalueDistr = recIRdistr[recIRdistrIsoIdx];
+      theIRvalue_mean = theIRvalueDistr["iso_mean"];
 
-      // update iso matrix
-      iso_spMat.at(obsIRlFomuNum, obsIRrFomuNum) = UpdateIso(iso_spMat.at(obsIRlFomuNum, obsIRrFomuNum), theIRvalue_LR_mean, s_iso);
-      iso_spMat.at(obsIRrFomuNum, obsIRlFomuNum) = UpdateIso(iso_spMat.at(obsIRrFomuNum, obsIRlFomuNum), theIRvalue_RL_mean, s_iso);
+      // record the mono-iso pairs in which the intensity ratio needs update
+      newIRmonoFomu.push_back(obsIRmonoFomuId);
+      newIRisoFomu.push_back(obsIRisoFomuId);
+      arma::uvec findMonoFomuId_uvec = arma::find(fomuIdSet_rvec == obsIRmonoFomuId);
+      arma::uvec findIsoFomuId_uvec = arma::find(fomuIdSet_rvec == obsIRisoFomuId);
+      double oldIRvalue = iso_spMat.at(fomuSet_rvec.at(findMonoFomuId_uvec.at(0)), fomuSet_rvec.at(findIsoFomuId_uvec.at(0)));
+      newIRirValue.push_back(UpdateIR(oldIRvalue, theIRvalue_mean, s_iso));
       remIRidx.push_back(i);
-      remIRidx.push_back(i + 1);
     }
   }
 
-  // after update iso, we delete some observed data which is used in building the distribution from obsIR, obsIRlFomu, obsIRrFomu
-  IntegerVector obsIRidx = seq_len(obsIRlFomu.length()) - 1;
+  // after update iso, we record the mono-iso pairs in which the observed data needs to be wiped. and record the mono-iso pairs in which the observed data needs to be updated
+  IntegerVector obsIRidx = seq_len(obsNewIRmonoFomu_rvec.n_elem) - 1;
   arma::uvec obsIRidx_uvec = as<arma::uvec>(obsIRidx);
   arma::uvec remIRidx_uvec = as<arma::uvec>(remIRidx);
   arma::uvec retainIRidx_uvec = SetDiff(obsIRidx_uvec, remIRidx_uvec);
   IntegerVector retainIRidx = wrap(retainIRidx_uvec.t());
-  obsIR = obsIR[retainIRidx];
-  obsIRlFomu = obsIRlFomu[retainIRidx];
-  obsIRrFomu = obsIRrFomu[retainIRidx];
 
-  // next we shuffle the main adduct relations based on the observed adduct intensities of monoisotopic adducts
-  // which include main adduct relations of monoisotopic adducts and main adduct relations of compounds
-  // recCompMainAddFomu, recCompMonoFomu
-  // recMonoMainAddFomu, recMonoFomuWithInSameComp, recMITwithInSameComp
+  // next we shuffle the main adduct relations based on the observed most intense time of monoisotopic adducts
+  // which contanis main adduct relations between compounds and mono adducts
+  // recCompMainAddFomu, recCompMonoFomu recMITwithInSameComp
   Rcout << " " << std::endl;
   Rcout << ">>>>>>>>>>>>>>>>>>>>>>>START TO SHUFFLE MAIN ADDUCT RELATIONS" << std::endl;
   Rcout << " " << std::endl;
-  NumericVector monoNewMainAddFomu(monoAddNum);
-  NumericVector compNewMainAddFomu(compNum);
-  int monoFlag = 0;
+  NumericVector newMainAddCompIdx;
+  NumericVector newMainAddId;
   for(int i = 0; i < recCompMainAddFomu.length(); i++){
-    NumericVector monoFomuVec = recCompMonoFomu.at(i);
-    // based on the recorded most intense adduct time of each mono-isotopic adduct, update main adduct information
-    int compNewMainAdd = CompareToShuffleMainAdd(recMonoMainAddFomu.at(monoFlag), recMonoFomuWithInSameComp.at(monoFlag), recMITwithInSameComp.at(monoFlag));
-    for(int j = monoFlag; j < monoFlag + monoFomuVec.length(); j++){
-      monoNewMainAddFomu.at(j) = compNewMainAdd;
-    }
-    compNewMainAddFomu.at(i) = compNewMainAdd;
-    monoFlag = monoFlag + monoFomuVec.length();
-  }
-
-  // after shuffle the main adducts, we can update adduct connectivity and bio connectivity now
-  Rcout << " " << std::endl;
-  Rcout << ">>>>>>>>>>>>>>>>>>>>>>>START TO UPDATE ADDUCT CONNECTIVITIES" << std::endl;
-  Rcout << " " << std::endl;
-  // recMonoFomu, recMonoMainAddFomu, monoNewMainAddFomu, add_spMat
-  for (int i = 0; i < recMonoFomu.length(); i++){
-    int oldMainAddFomu = recMonoMainAddFomu.at(i);
-    int newMainAddFomu = monoNewMainAddFomu.at(i);
-    int monoAdd = recMonoFomu.at(i);
-    if(oldMainAddFomu != newMainAddFomu && monoAdd != newMainAddFomu) {
-      add_spMat.at(monoAdd, oldMainAddFomu) = 0;
-      add_spMat.at(oldMainAddFomu, monoAdd) = 0;
-      add_spMat.at(monoAdd, newMainAddFomu) = 1;
-      add_spMat.at(newMainAddFomu, monoAdd) = 1;
+    // based on the recorded most intense adduct time of each mono-isotopic adduct linked with the same compound, update main adduct information
+    int compOldMainAdd = recCompMainAddFomu.at(i);
+    int compNewMainAdd = CompareToShuffleMainAdd(compOldMainAdd, recCompMonoFomu.at(i), recMITwithInSameComp.at(i));
+    if (compOldMainAdd != compNewMainAdd){
+      newMainAddCompIdx.push_back(i);
+      newMainAddId.push_back(compNewMainAdd);
+      compPriorMark_rvec.at(i) += 1;
     }
   }
-
+  
+  // after shuffle the main adducts, we can start update compound prior knowledge now
   Rcout << " " << std::endl;
-  Rcout << ">>>>>>>>>>>>>>>>>>>>>>>START TO UPDATE BIOCHEMICAL CONNECTIVITIES" << std::endl;
+  Rcout << ">>>>>>>>>>>>>>>>>>>>>>>START TO UPDATE COMPOUND PRIOR KNOWLEDGE" << std::endl;
   Rcout << " " << std::endl;
-  // recCompBioLink, recCompMainAddFomu, compNewMainAddFomu, bio_spMat
-  for (int i = 0; i < recCompBioLink.length(); i++){
-    NumericVector bioConnectVec = recCompBioLink.at(i);
-    if (bioConnectVec.length() != 0){
-      for (int j = 0; j < bioConnectVec.length(); j++){
-        int compNum = bioConnectVec.at(j);
-        int oldCompLMainAdd = recCompMainAddFomu.at(i);
-        int oldCompRMainAdd = recCompMainAddFomu.at(compNum);
-        int newCompLMainAdd = compNewMainAddFomu.at(i);
-        int newCompRMainAdd = compNewMainAddFomu.at(compNum);
-        if (!(oldCompLMainAdd == oldCompRMainAdd && newCompLMainAdd == newCompRMainAdd)){
-          bio_spMat.at(oldCompLMainAdd, oldCompRMainAdd) = 0;
-          bio_spMat.at(newCompLMainAdd, newCompRMainAdd) = 1;
-        }
-      }
-    }
-  }
-
+  // compPriorMark_rvec
+  arma::rowvec pkComp_rvec = as<arma::rowvec>(pkComp);                                                  // prior knowledge of all the compounds
+  arma::uvec compNeedPriorUpdate_uvec = arma::find(compPriorMark_rvec != 0);
+  pkComp_rvec = UpdateCompPriorKnowledge(pkComp_rvec, compNeedPriorUpdate_uvec, s_pkComp);
+  
+  // the last one: update retention time information of compounds
   Rcout << " " << std::endl;
   Rcout << ">>>>>>>>>>>>>>>>>>>>>>>START TO RECORD RETENTION TIME DISTRIBUTION" << std::endl;
   Rcout << " " << std::endl;
-  arma::rowvec obsNewRTfomu_rvec = as<arma::rowvec>(obsRTfomu);                  // all fomula numbers of observed retention time before update
-  arma::rowvec recRTdistrFomu_rvec = as<arma::rowvec>(recRTdistrFomu);           // all fomula numbers of recorded distribution information of retention time before update
-
-  // iterate on all observed fomula numbers of retention time,
-  // the idea is to find out if the observed fomula is already found in the fomula set of recorded distribution information about retention time
-  IntegerVector remRTidx;
-  for(int i = 0; i < obsNewRTfomu_rvec.n_elem; i++){
-    int obsRTfomuNum = obsNewRTfomu_rvec.at(i);
-    arma::uvec recRTdistrFomuFind_uvec = arma::find(recRTdistrFomu_rvec == obsRTfomuNum);
-    NumericVector obsFomuRTsub = obsFomuRT[i];
-    // if we have not recorded the distribution information of this observed fomula before,
-    // we can push_back the first distribution information of this observed fomula and the index (fomula number)
-    // only if record more than 2 retention time values of this fomula
-    if(recRTdistrFomuFind_uvec.n_elem == 0){
-      if(obsFomuRTsub.length() > 1){
-        arma::rowvec obsFomuRT_rvec = as<arma::rowvec>(obsFomuRTsub);
-        double rt_mean = arma::mean(obsFomuRT_rvec);
-        double rt_std = arma::stddev(obsFomuRT_rvec);
+  // obsRTcompIds obsRTvalues
+  // obsCompRT, obsRTcomp, recCompRT, recRTcomp, recCompRTdistr, recRTdistrComp
+  // first integrate the observed retention time information
+  arma::rowvec obsRTcompIds_rvec = as<arma::rowvec>(obsRTcompIds);
+  arma::rowvec obsRTcompIdUnique_rvec = unique(obsRTcompIds_rvec);
+  arma::rowvec obsRTvalues_rvec = as<arma::rowvec>(obsRTvalues);
+  arma::rowvec obsRTcomp_rvec = as<arma::rowvec>(obsRTcomp);                                      
+  arma::rowvec recRTcomp_rvec = as<arma::rowvec>(recRTcomp);
+  arma::rowvec recRTdistrComp_rvec = as<arma::rowvec>(recRTdistrComp);
+  NumericVector remObsRTidx;
+  for(int i = 0; i < obsRTcompIdUnique_rvec.n_elem; i++){
+    int obsRTcompId = obsRTcompIdUnique_rvec.at(i);
+    arma::uvec findComp_uvec = arma::find(obsRTcompIds_rvec == obsRTcompId);
+    arma::rowvec obsRTset_rvec = obsRTvalues_rvec.elem(findComp_uvec).t();
+    double obsRTvalue = arma::mean(obsRTset_rvec);
+    // check if we recorded retention time info of this compound before
+    arma::uvec recRTcompFind_uvec = arma::find(recRTcomp_rvec == obsRTcompId);
+    if(recRTcompFind_uvec.is_empty()){    // if not recorded before, we check if observed before
+      arma::uvec obsRTcompFind_uvec = arma::find(obsRTcomp_rvec == obsRTcompId);
+      if(obsRTcompFind_uvec.is_empty()){  // if not observed before as well
+        obsCompRT.push_back(obsRTvalue);
+        obsRTcomp.push_back(obsRTcompId);
+      } else{                             // if observed before, directly wrap them into distribution
+        int obsRTidx = obsRTcompFind_uvec.at(0);
+        double obsRToldValue = obsCompRT.at(obsRTidx);
+        NumericVector rt;
+        rt.push_back(obsRToldValue);
+        rt.push_back(obsRTvalue);
+        recCompRT.push_back(rt);
+        recRTcomp.push_back(obsRTcompId);
+        arma::rowvec rt_rvec = as<arma::rowvec>(rt);
+        double rt_mean = arma::mean(rt_rvec);
+        double rt_std = arma::stddev(rt_rvec);
         double rt_num = 2;
         List rt_distr;
         rt_distr["rt_num"] = rt_num;
         rt_distr["rt_mean"] = rt_mean;
         rt_distr["rt_std"] = rt_std;
-        recFomuRTdistr.push_back(rt_distr);          // here we push_back the distribution information
-        recRTdistrFomu.push_back(obsRTfomuNum);      // here we push_back the index (compound number)
-        remRTidx.push_back(i);
+        recCompRTdistr.push_back(rt_distr);          // here we push_back the distribution information
+        recRTdistrComp.push_back(obsRTcompId);       // here we push_back the index (compound id)
+        remObsRTidx.push_back(obsRTidx);
       }
-    }else{
-      // if we have recorded the distribution information of this observed fomula before,
-      // we pop the distribution information into the same position we find it,
-      // but we don't pop the indices in this situation cause the indices are already existed
-      int recRTdistrIdx = recRTdistrFomuFind_uvec.at(0);
-      double rt_mean = obsFomuRTsub.at(0);
+    } else{                                          // if recorded before, which means we do not need to store it into observed format any more, just store it into recorded format and update the distribution
+      int recRTidx = recRTcompFind_uvec.at(0);
+      NumericVector recRToldValues = recCompRT[recRTidx];
+      recRToldValues.push_back(obsRTvalue);
+      recCompRT[recRTidx] = recRToldValues;
+      double rt_mean = obsRTvalue;
       double rt_std = 0;
       double rt_num = 1;
-
+      // find the idx of this compound in recCompRTdistr(should be the same, just in case)
+      arma::uvec findRecRTdistr_uvec = arma::find(recRTdistrComp_rvec == obsRTcompId);
+      int recRTdistrIdx = findRecRTdistr_uvec.at(0);
       // update retention time distribution information
-      recFomuRTdistr[recRTdistrIdx] = UpdateRtInfo(recFomuRTdistr[recRTdistrIdx], rt_mean, rt_std, rt_num);
-      remRTidx.push_back(i);
+      recCompRTdistr[recRTdistrIdx] = UpdateRtInfo(recCompRTdistr[recRTdistrIdx], rt_mean, rt_std, rt_num);
     }
   }
 
-  // after record retention time distribution information, we remove those observed data from obsFomuRT, obsRTfomu
-  IntegerVector obsRTidx = seq_len(obsRTfomu.length()) - 1;
-  arma::uvec obsRTidx_uvec = as<arma::uvec>(obsRTidx);
-  arma::uvec remRTidx_uvec = as<arma::uvec>(remRTidx);
-  arma::uvec retainRTidx_uvec = SetDiff(obsRTidx_uvec, remRTidx_uvec);
-  IntegerVector retainRTidx = wrap(retainRTidx_uvec.t());
-  obsFomuRT = obsFomuRT[retainRTidx];
-  obsRTfomu = obsRTfomu[retainRTidx];
+  // after record retention time distribution information, we find those observed data from obsCompRT, obsRTcomp need to remove
+  IntegerVector allObsRTidx = seq_len(obsRTcomp.length()) - 1;
+  arma::uvec allObsRTidx_uvec = as<arma::uvec>(allObsRTidx);
+  arma::uvec remObsRTidx_uvec = as<arma::uvec>(remObsRTidx);
+  arma::uvec retainObsRTidx_uvec = SetDiff(allObsRTidx_uvec, remObsRTidx_uvec);
+  IntegerVector retainObsRTidx = wrap(retainObsRTidx_uvec.t());
 
   Rcout << " " << std::endl;
   Rcout << ">>>>>>>>>>>>>>>>>>>>>>>>END OF WHOLE UPDATE STAGE" << std::endl;
   Rcout << " " << std::endl;
 
   // next is the return value set, what should we return?
-  // pkFomu: prior knowledge vector (both fomula and compound)
-  // ma: updated mass accuracy value, observed mass accuracies at this time, all time mass accuracy distributions, all time mass accuracy values
-  // iso: observed intensity ratios at this time + fomula pair indices, plus observed intensity ratio numbers at this time
-  //      recorded distributions of intensity ratios of all thime + fomula pair indices
-  //      updated iso matrix
-  // add: fomula number of all monoisotopic adducts;
-  //      fomula number of monoisotopic adduct's main adduct
-  //      the adduct numbers from monoisotopic & adduct connection
-  //      the most intense time of adduct being observed as the most adduct in monoisotopic & adduct connection
-  //      updated add matrix
-  // bio: list of compounds which has bio connection with each compound
-  //      updated main adduct fomula number of each compound
-  //      updated bio matrix
-  // rt: observed RT in this time, fomula number of observed RT in this time, recorded RT of all time, recorded distributions of RT all time, recorded fomula number of all thime recorded RT distributions
+  //
+  // pk: pkFomu_rvec, pkComp_rvec
+  //
+  // ma: ma, obsMA, recMAdistr, recMA
+  //
+  // iso: obsIR, obsIRmonoFomu, obsIRisoFomu, removeIRidx, retainIRidx 
+  //      newIRmonoFomu, newIRisoFomu, newIRirValue
+  //      recIRdistr, recIRdistrMonoFomu, recIRdistrIsoFomu
+  //
+  // add: recComp, recCompMonoFomu, recMITwithInSameComp, newMainAddCompIdx, newMainAddId 
+  //
+  // rt: obsCompRT, obsRTcomp, retainObsRTidx
+  //     recCompRT, recRTcomp
+  //     recCompRTdistr, recRTdistrComp
 
-  // normalise prior knowledge
-  pkFomu_rvec = pkFomu_rvec / sum(pkFomu_rvec);
-  pkComp_rvec = pkComp_rvec / sum(pkComp_rvec);
+  // // normalise prior knowledge
+  // pkFomu_rvec = pkFomu_rvec / sum(pkFomu_rvec);
+  // pkComp_rvec = pkComp_rvec / sum(pkComp_rvec);
 
   // return a list, contain all the updated results
-  List obsMAlist = List::create(Rcpp::Named("obsMA") = obsMA);
+  List pkList = List::create(Rcpp::Named("pkFomu") = wrap(pkFomu_rvec),
+                             Rcpp::Named("pkComp") = wrap(pkComp_rvec));
 
-  List recMAlist = List::create(Rcpp::Named("recMA") = recMA,
-                                Rcpp::Named("recMAdistr") = recMAdistr);
+  List maList = List::create(Rcpp::Named("ma") = ma,
+                             Rcpp::Named("obsMA") = obsMA,
+                             Rcpp::Named("recMA") = recMA,
+                             Rcpp::Named("recMAdistr") = recMAdistr);
+  
+  List isoList = List::create(Rcpp::Named("obsIR") = obsIR,
+                             Rcpp::Named("obsIRmonoFomu") = obsIRmonoFomu,
+                             Rcpp::Named("obsIRisoFomu") = obsIRisoFomu,
+                             Rcpp::Named("removeIRidx") = remIRidx + 1,
+                             Rcpp::Named("retainIRidx") = retainIRidx + 1,
+                             Rcpp::Named("newIRmonoFomu") = newIRmonoFomu,
+                             Rcpp::Named("newIRisoFomu") = newIRisoFomu,
+                             Rcpp::Named("newIRirValue") = newIRirValue,
+                             Rcpp::Named("recIRdistr") = recIRdistr,
+                             Rcpp::Named("recIRdistrMonoFomu") = recIRdistrMonoFomu,
+                             Rcpp::Named("recIRdistrIsoFomu") = recIRdistrIsoFomu);
+  
+  List addList = List::create(Rcpp::Named("recComp") = recComp,
+                              Rcpp::Named("recCompMonoFomu") = recCompMonoFomu,
+                              Rcpp::Named("recMITwithInSameComp") = recMITwithInSameComp,
+                              Rcpp::Named("newMainAddCompIdx") = newMainAddCompIdx + 1,
+                              Rcpp::Named("newMainAddId") = newMainAddId);
+  
+  List rtList = List::create(Rcpp::Named("obsCompRT") = obsCompRT,
+                              Rcpp::Named("obsRTcomp") = obsRTcomp,
+                              Rcpp::Named("retainObsRTidx") = retainObsRTidx + 1,
+                              Rcpp::Named("recCompRT") = recCompRT,
+                              Rcpp::Named("recRTcomp") = recRTcomp,
+                              Rcpp::Named("recCompRTdistr") = recCompRTdistr,
+                              Rcpp::Named("recRTdistrComp") = recRTdistrComp);
 
-  List obsIRlist = List::create(Rcpp::Named("obsIR") = obsIR,
-                                Rcpp::Named("obsIRlFomu") = obsIRlFomu,
-                                Rcpp::Named("obsIRrFomu") = obsIRrFomu);
-
-  List recIRlist = List::create(Rcpp::Named("recIRdistr") = recIRdistr,
-                                Rcpp::Named("recIRdistrLFomu") = recIRdistrLFomu,
-                                Rcpp::Named("recIRdistrRFomu") = recIRdistrRFomu);
-
-  List recADDlist = List::create(Rcpp::Named("recMonoFomu") = recMonoFomu,
-                                 Rcpp::Named("recMonoMainAddFomu") = monoNewMainAddFomu,
-                                 Rcpp::Named("recMonoFomuWithInSameComp") = recMonoFomuWithInSameComp,
-                                 Rcpp::Named("recMITwithInSameComp") = recMITwithInSameComp);
-
-  List recBIOlist = List::create(Rcpp::Named("recCompBioLink") = recCompBioLink,
-                                 Rcpp::Named("recCompMonoFomu") = recCompMonoFomu,
-                                 Rcpp::Named("recCompMainAddFomu") = compNewMainAddFomu);
-
-  List obsRTlist = List::create(Rcpp::Named("obsFomuRT") = obsFomuRT,
-                                Rcpp::Named("obsRTfomu") = obsRTfomu);
-
-
-  List recRTlist = List::create(Rcpp::Named("recFomuRT") = recFomuRT,
-                                Rcpp::Named("recRTfomu") = recRTfomu,
-                                Rcpp::Named("recFomuRTdistr") = recFomuRTdistr,
-                                Rcpp::Named("recRTdistrFomu") = recRTdistrFomu);
-
-  List model = List::create(Rcpp::Named("pkFomu") = wrap(pkFomu_rvec),
-                            Rcpp::Named("pkComp") = wrap(pkComp_rvec),
-                            Rcpp::Named("ma") = ma,
-                            Rcpp::Named("iso") = iso_spMat,
-                            Rcpp::Named("add") = add_spMat,
-                            Rcpp::Named("bio") = bio_spMat);
-
-  List record = List::create(Rcpp::Named("ma") = recMAlist,
-                             Rcpp::Named("iso") = recIRlist,
-                             Rcpp::Named("add") = recADDlist,
-                             Rcpp::Named("bio") = recBIOlist,
-                             Rcpp::Named("rt") = recRTlist);
-
-  List other = List::create(Rcpp::Named("ma") = obsMAlist,
-                            Rcpp::Named("iso") = obsIRlist,
-                            Rcpp::Named("rt") = obsRTlist);
-
-  return List::create(Rcpp::Named("model") = model,
-                      Rcpp::Named("record") = record,
-                      Rcpp::Named("other") = other);
+  return List::create(Rcpp::Named("pk") = pkList,
+                      Rcpp::Named("ma") = maList,
+                      Rcpp::Named("iso") = isoList,
+                      Rcpp::Named("add") = addList,
+                      Rcpp::Named("rt") = rtList);
 
   // return R_NilValue;
 }

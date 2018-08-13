@@ -8,37 +8,35 @@ using namespace Rcpp;
 
 // typedef Eigen::SparseMatrix<double, RowMajor> SpMat;
 
-arma::rowvec spVectorGetDense(arma::sp_mat x){
+arma::rowvec spVectorGetDenseCol(arma::sp_mat x){
   arma::sp_mat::const_iterator xStart = x.begin();
   arma::sp_mat::const_iterator xEnd   = x.end();
-  arma::rowvec result = arma::zeros<arma::rowvec>(x.n_cols);
+  arma::rowvec result = arma::zeros<arma::rowvec>(x.n_rows);
   for(arma::sp_mat::const_iterator it = xStart; it != xEnd; ++it)
   {
     double p = (*it);
     if(p != 0){
-      int colNum = it.col();
-      result.at(colNum) = p;
+      int rowNum = it.row();
+      result.at(rowNum) = p;
     }
   }
   return result;
 }
 
-arma::sp_mat spMatColSum(arma::sp_mat x, arma::rowvec rows){
-  arma::sp_mat result = arma::sp_mat(1, x.n_cols);
-  for(int i = 0; i < rows.n_elem; i++){
-    int rowNum = rows.at(i);
-    arma::sp_mat x_sub = x.row(rowNum);
-    result = result + x_sub;
+arma::sp_mat spMatRowSum(arma::sp_mat x, arma::rowvec cols){
+  arma::sp_mat result = arma::sp_mat(x.n_rows, 1);
+  for(int i = 0; i < cols.n_elem; i++){
+    int colNum = cols.at(i);
+    result += x.col(colNum);
   }
   return result;
 }
 
-arma::sp_mat spMatSubView(arma::sp_mat x, arma::rowvec rows){
-  arma::sp_mat result = arma::sp_mat(rows.n_elem, x.n_cols);
-  for(int i = 0; i < rows.n_elem; i++){
-    int rowNum = rows.at(i);
-    arma::sp_mat x_sub = x.row(rowNum);
-    result.row(i) = x_sub;
+arma::sp_mat spMatSubColView(arma::sp_mat x, arma::rowvec cols){
+  arma::sp_mat result = arma::sp_mat(x.n_rows, cols.n_elem);
+  for(int i = 0; i < cols.n_elem; i++){
+    int colNum = cols.at(i);
+    result.col(i) = x.col(colNum);
   }
   return result;
 }
@@ -97,43 +95,66 @@ arma::uvec setDiff(arma::uvec x, arma::uvec y){
   return result;
 }
 
-List thresholdIntRatio(arma::sp_mat x, arma::rowvec massRatios, double r){
-  // for(int i = 0; i < iso.n_rows; i++){
-  //   iso.row(i).operator*=(massRatios.at(i));
-  // }
-  // return iso;
-  arma::sp_mat::const_iterator xStart = x.begin();
-  arma::sp_mat::const_iterator xEnd   = x.end();
+arma::rowvec thresholdIntRatio(arma::sp_mat x, arma::rowvec cols, arma::rowvec massRatios, double r){
   NumericVector row;
-  NumericVector column;
-  for(arma::sp_mat::const_iterator it = xStart; it != xEnd; ++it)
-  {
-    double value = (*it);
-    if(value != 0){
-      int rowNum = it.row();
-      double ratio = value * massRatios.at(rowNum);
-      if(ratio >= r && ratio <= 1/r){
-        int colNum = it.col();
-        row.push_back(rowNum);
-        column.push_back(colNum);
+  NumericVector rowSum;
+  // Rcout << "inside thresholdIntRatio" << std::endl;
+  for(int i = 0; i < cols.n_elem; i++){
+    // Rcout << "picked a column" << std::endl;
+    int colNum = cols.at(i);
+    // Rcout << "colNum: " << colNum << std::endl;
+    arma::sp_mat::const_col_iterator xStart = x.begin_col(colNum);
+    arma::sp_mat::const_col_iterator xEnd   = x.end_col(colNum);
+    for(arma::sp_mat::const_col_iterator it = xStart; it != xEnd; ++it){
+      // Rcout << "start sparese matrix column iteration" << std::endl;
+      double value = (*it);
+      // Rcout << "value: " << value << std::endl;
+      if(value != 0){
+        // Rcout << "massRatios number: " << massRatios.n_elem << std::endl; 
+        // Rcout << "massRatios.at(i): " << massRatios.at(i) << std::endl;
+        double ratio = value * massRatios.at(i);
+        // Rcout << "ratio: " << ratio << std::endl;
+        if(ratio >= r && ratio <= 1/r){
+          // Rcout << "ratio accepted" << std::endl;
+          int rowNum = it.row();
+          // Rcout << "row Num: " << rowNum << std::endl;
+          arma::rowvec row_rvec = as<arma::rowvec>(row);
+          // Rcout << "start findRow_uvec" << std::endl;
+          arma::uvec findRow_uvec = arma::find(row_rvec == rowNum);
+          if(findRow_uvec.is_empty()){
+            // Rcout << "row not found!" << rowNum << std::endl;
+            row.push_back(rowNum);
+            rowSum.push_back(1);
+          }else{
+            // Rcout << "row found!" << rowNum << std::endl;
+            int idx = findRow_uvec.at(0);
+            rowSum.at(idx) += 1;
+          }
+        }
       }
     }
   }
-  return List::create(Rcpp::Named("rowIdx") = row,
-                      Rcpp::Named("colIdx") = column);
+  // Rcout << "start sum" << std::endl;
+  arma::rowvec result = arma::zeros<arma::rowvec>(x.n_rows);
+  for(int i = 0; i < row.length(); i++){
+    int idx = row.at(i);
+    result.at(idx) = rowSum.at(i);
+  }
+  // Rcout << "end sum" << std::endl;
+  return result;
 }
 
 // void printOutUvec(arma::uvec x){
-//   Rcout << "UVector" << std::endl;
+//   // // Rcout << "UVector" << std::endl;
 //   x.t().raw_print(std::cout);
 // }
 // void printOutRvec(arma::rowvec x){
-//   Rcout << "RVector" << std::endl;
+//   // // Rcout << "RVector" << std::endl;
 //   x.raw_print(std::cout);
 // }
 // void printOutNvec(NumericVector x){
 //   for(int i = 0; i < x.length(); i++){
-//     Rcout << "NumericVector, " << x.at(i) << std::endl;
+//     // // Rcout << "NumericVector, " << x.at(i) << std::endl;
 //   }
 // }
 
@@ -166,21 +187,31 @@ arma::sp_mat GibbsSampling_Int_NoPot(   List removal,
   arma::rowvec massInt_rvec = as<arma::rowvec>(massInt);
   arma::mat allSampFomu_mat = arma::zeros<arma::mat>(itNum,massNum);
   NumericVector sampFomu;
+  prior_spMat = prior_spMat.t();
+  add_spMat = add_spMat.t();
+  iso_spMat = iso_spMat.t();
+  bio_spMat = bio_spMat.t();
+  // Rcout<< "start probability sample" << std::endl;
   for(int i = 0; i < massNum; i++){
-    arma::sp_mat priorRow_sp = prior_spMat.row(i);
-    arma::rowvec priorRow_rvec = spVectorGetDense(priorRow_sp);
-    NumericVector priorRowSample = sampleRcppUnExport(seqFomu, 1, true, wrap(priorRow_rvec));
-    sampFomu.push_back(priorRowSample.at(0));
+    arma::sp_mat priorCol_sp = prior_spMat.col(i);
+    arma::rowvec priorCol_rvec = spVectorGetDenseCol(priorCol_sp);
+    NumericVector priorColSample = sampleRcppUnExport(seqFomu, 1, true, wrap(priorCol_rvec));
+    sampFomu.push_back(priorColSample.at(0));
   }
+  // Rcout<< "comlete probability sample" << std::endl;
   sampFomu = sampFomu - 1;
   arma::rowvec sampFomu_rvec = as<arma::rowvec>(sampFomu);
-  arma::sp_mat potBio_sp = spMatColSum(bio_spMat, sampFomu_rvec);
+  arma::sp_mat potBio_sp = spMatRowSum(bio_spMat, sampFomu_rvec);
   NumericVector ordine(massNum);
   int v = 0;
   for(int i = 0; i < itNum; i++){
+    // Rcout<< "enter into i iteration" << std::endl;
     ordine = sampleRcppUnExport(seqMass, massNum, false);
     ordine = ordine - 1;
+    int j = 0;
+    int w = 0;
     for(auto n : ordine ){
+      // Rcout<< "enter into thism iteration" << std::endl;
       int thism = n;
       // assignmented compounds of masses retained
       NumericVector remMass = removal.at(thism);
@@ -191,10 +222,10 @@ arma::sp_mat GibbsSampling_Int_NoPot(   List removal,
         retainMass_uvec = retainMass_uvec - 1;
         retainFomu_rvec = sampFomu_rvec.elem(retainMass_uvec).t();
       }
-      
+      // Rcout<< "comlete retainFomu" << std::endl;
       // counting adductrelations
-      arma::sp_mat pAdd_sp = spMatColSum(add_spMat, retainFomu_rvec);
-
+      arma::sp_mat pAdd_sp = spMatRowSum(add_spMat, retainFomu_rvec);
+      // Rcout<< "comlete pAdd_sp" << std::endl;
       // counting isotoperelations
       // in R:
       // tmp <- matrix(Iso[sampcomp[-ind.rem[[thism]]],],ncol = Nc)*(Int[thism]/Int[-ind.rem[[thism]]])
@@ -202,36 +233,30 @@ arma::sp_mat GibbsSampling_Int_NoPot(   List removal,
       //   tmp[ind.ones]<-1
       // tmp[tmp!=1] <-0
       // p.iso<-colSums(tmp)
-      arma::sp_mat isoSub_spMat = spMatSubView(iso_spMat,retainFomu_rvec);
-      arma::rowvec massIntRatio_rvec = massInt_rvec.elem(retainMass_uvec).t();
-      List l = thresholdIntRatio(isoSub_spMat, massIntRatio_rvec, ratioToll);
-      arma::rowvec rowIdx_rvec = l["rowIdx"];
-      arma::rowvec colIdx_rvec = l["colIdx"];
-      arma::rowvec colIdxUni_rvec = arma::unique(colIdx_rvec);
-      arma::rowvec pIso_rvec = arma::zeros<arma::rowvec>(fomuNum);
-      for (int k = 0; k < colIdxUni_rvec.n_elem; k++){
-        int colIdx = colIdxUni_rvec.at(k);
-        arma::uvec colFind_uvec = arma::find(colIdx_rvec == colIdx);
-        int num = colFind_uvec.n_elem;
-        pIso_rvec.at(colIdx) = num;
-      }
+      // Rcout<< "start pIso_rvec" << std::endl;
+      arma::rowvec massIntRatio_rvec =  massInt_rvec.elem(retainMass_uvec).t();
+      // Rcout<< "start thresholdIntRatio" << std::endl;
+      // Rcout<< "massInt_rvec.at(thism): " << massInt_rvec.at(thism) << std::endl;
+      arma::rowvec pIso_rvec = thresholdIntRatio(iso_spMat, retainFomu_rvec, massInt_rvec.at(thism) / massIntRatio_rvec, ratioToll);
+      // Rcout<< "comlete pIso_rvec" << std::endl;
 
       // counting biotransformations relations
       int remFomu_bio = sampFomu_rvec.at(thism);
-      arma::sp_mat remBio_sp = bio_spMat.row(remFomu_bio);
+      arma::sp_mat remBio_sp = bio_spMat.col(remFomu_bio);
       arma::sp_mat pBio_sp = potBio_sp - remBio_sp;
-
+      // Rcout<< "comlete pBio_sp" << std::endl;
       // adding penalities, ##only into add relation and iso relation
       
       // normalising with deltas
-      arma::rowvec pAdd_rvec = spVectorGetDense(pAdd_sp);
-      arma::rowvec pBio_rvec = spVectorGetDense(pBio_sp);
+      arma::rowvec pAdd_rvec = spVectorGetDenseCol(pAdd_sp);
+      arma::rowvec pBio_rvec = spVectorGetDenseCol(pBio_sp);
       pAdd_rvec = (pAdd_rvec + delAdd) / sum(pAdd_rvec + delAdd);
       pIso_rvec = (pIso_rvec + delIso) / sum(pIso_rvec + delIso);
       pBio_rvec = (pBio_rvec + delBio) / sum(pBio_rvec + delBio);
-      arma::rowvec prior_rvec  = spVectorGetDense(prior_spMat.row(thism));
+      arma::rowvec prior_rvec  = spVectorGetDenseCol(prior_spMat.col(thism));
       arma::rowvec post_rvec = prior_rvec % pAdd_rvec % pIso_rvec % pBio_rvec;
-
+      // Rcout<< "comlete post_rvec" << std::endl;
+      
       // eliminate negative value
       // post[post < 0] = 0;
       
@@ -251,20 +276,34 @@ arma::sp_mat GibbsSampling_Int_NoPot(   List removal,
       
       // if re-sample works, then
       if(oldSamp != newSamp){
-        potBio_sp = potBio_sp - bio_spMat.row(oldSamp) + bio_spMat.row(newSamp);
+        potBio_sp = potBio_sp - bio_spMat.col(oldSamp) + bio_spMat.col(newSamp);
       }
+      if(log){
+        int old_w = w;
+        w = (j * 100) / massNum;
+        if(old_w != w){
+          Rcout << "thism iteration: " << w << "%" <<std::endl;
+          if(w % 10 == 0){
+            Rcout<< "\014" << std::endl;
+          }
+        }
+      } 
+      j += 1;
     }
     
     // when finishing each iteration 
     // get the whole new sampcomp vector, where each element(mess) get resampled using its posterior probability vector
     allSampFomu_mat.submat(i,0,i,massNum-1) = sampFomu_rvec;
-    
+
     // print some logs
     if(log){
       int old_v = v;
       v = (i * 100) / itNum;
       if(old_v !=v){
         Rcout << "computing posterior probability: " << v << "%" <<std::endl;
+        // if(v % 20 == 0){
+        //   Rcout<< "\014" << std::endl;
+        // }
       }
     } 
   }

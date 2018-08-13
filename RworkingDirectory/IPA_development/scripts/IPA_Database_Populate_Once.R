@@ -6,52 +6,33 @@ library(data.table)
 # CAUTION THIS SCRIPT IS FOR THE INITIAL BIOCHEM4J DATABASE, RUN THIS AFTER YOU LOAD THE BASIC BIOCHEM4J DATABASE EXAMPLE
 
 # here to connect with database on local server
-graph = startGraph("http://localhost:7474/db/data/", username = "neo4j", password = "oyyq6997")
-
-## here is some initial change on database, !!!no need any more, just ignore them, don't delete them!!!
-## delete the nodes in Chemical with property formula is empty or NA
-## delete the nodes in Chemical with no monoisotopic mass value
-# query = "MATCH (n:Chemical) WHERE not exists(n.formula) DETACH DELETE n"
-# cypher(graph, query)
-# query = "MATCH (n:Chemical) WHERE n.formula = 'NA' DETACH DELETE n"
-# cypher(graph, query)
-# query = "MATCH (n:Chemical) WHERE not exists(n.monoisotopic_mass) DETACH DELETE n"
-# cypher(graph, query)
-
+graph <- startGraph("http://localhost:11004/db/data/",username="neo4j", password="oyyq6997")
 
 ## deal with dbId and id property in Chemical node
-# query = "MATCH (n:Chemical) SET n.dbId = n.id REMOVE n.id"
-# cypher(graph, query)
-# query = "MATCH (n:Chemical) SET n.id = id(n) + 1"
-# cypher(graph, query)
+query = "MATCH (n:Chemical) SET n.dbId = n.id REMOVE n.id"
+cypher(graph, query)
+query = "MATCH (n:Chemical) SET n.id = id(n) + 1"
+cypher(graph, query)
 
 ## add a constraint on Chemical node (function as an index), this is important
-# query = "CREATE CONSTRAINT ON (n:Chemical) ASSERT n.id IS UNIQUE"
-# cypher(graph, query)
+query = "CREATE CONSTRAINT ON (n:Chemical) ASSERT n.id IS UNIQUE"
+cypher(graph, query)
 ##or addConstraint(graph, "Chemical", "id")
 
 
 ## next is to populate the data into the database, the jobs are:
 ## 1. add prior knowledge ("pk") property for Chemical node, initial value all equal to 1 & add properties (rtAll,rtMean,rtStd) for Chemical node, initialise value to
-# query = "MATCH (n:Chemical) SET n.pk = 1, n.rtAll = '', n.rtMean = 0, n.rtStd = 0"
-# cypher(graph, query)
+query = "MATCH (n:Chemical) SET n.pk = 1, n.rtAll = [], n.rtMean = 0.0, n.rtStd = 0.0"
+cypher(graph, query)
 
 # 2. link compounds to adducts & isotopes, add properties for adduct node
-# get chemical Information split in multi-times for memory efficiency (no need anymore, populate once and all)
-# query = "MATCH (n:Chemical) RETURN n.id AS id, n.formula AS formula, n.monoisotopic_mass as mz ORDER BY n.id limit 100000"
-# query = "MATCH (n:Chemical) RETURN n.id AS id, n.formula AS formula, n.monoisotopic_mass as mz ORDER BY n.id skip 100000 limit 100000"
-# query = "MATCH (n:Chemical) RETURN n.id AS id, n.formula AS formula, n.monoisotopic_mass as mz ORDER BY n.id skip 200000 limit 100000"
-# query = "MATCH (n:Chemical) RETURN n.id AS id, n.formula AS formula, n.monoisotopic_mass as mz ORDER BY n.id skip 300000 limit 100000"
-# query = "MATCH (n:Chemical) RETURN n.id AS id, n.formula AS formula, n.monoisotopic_mass as mz ORDER BY n.id skip 400000 limit 100000"
-# query = "MATCH (n:Chemical) RETURN n.id AS id, n.formula AS formula, n.monoisotopic_mass as mz ORDER BY n.id skip 500000 limit 100000"
-# query = "MATCH (n:Chemical) RETURN n.id AS id, n.formula AS formula, n.monoisotopic_mass as mz ORDER BY n.id skip 600000"
+# get chemical Information
 query = "MATCH (n:Chemical) RETURN n.id AS id, n.formula AS formula, n.monoisotopic_mass as mz ORDER BY n.id"
 chemInfo <- cypher(graph, query)
 
 # chemInfo is a list, turn list into a datatable
 chemInfoTable <- setDT(chemInfo)
 rm(chemInfo)
-# get valid compounds (checked by check_chemform)
 data("adducts")
 data("isotopes")
 
@@ -82,6 +63,9 @@ for(i in 1: length(addType)){
 }
 addId <- 0
 v <- 0
+
+# please set your ideal data amount of Adduct nodes, for example, compound number is 100, so the maximum number of Adducts should not exceed 100 * 6 types of adducts * 3 kinds of isotopes = 1800
+# and set the ideal data amount to be the amount of the datatable, here is 2e7
 addTable = data.table(id = rep(0, 2e7), name = rep("",2e7), formula = rep("",2e7), type = rep("", 2e7), charge = rep(0, 2e7), mz = rep(0, 2e7),
                       mainAddOf = rep(0,2e7), isPOS = rep(-1,2e7), POSorNEGof = rep(0,2e7), isoOf = rep(0,2e7), isoRank = rep(0,2e7), initIR = rep(0,2e7))
 for(i in 1:chemNum){
@@ -181,24 +165,24 @@ for(i in 1:chemNum){
 
 # ## store the information into csv files
 # save(addTable, file="C:/Users/oyyqwhuiss/Desktop/data_generate_all.Rdata")
+load(file = "C:/Users/oyyqwhuiss/Desktop/data_generate_all.Rdata")
 
 # # delete empty space in datatable and re-arrange the id, then write into .csv file
-# load(file = "C:/Users/oyyqwhuiss/Desktop/data_generate_all.Rdata")
-startId <- 1
-validId <- addTable[id != 0, which = TRUE]
-endId <- length(validId)
-# id: start~end
-newId <- c(startId : endId)
-newAddTable <- addTable[1:endId,]
-rm(addTable)
-newAddTable[,"id"] <- newId
-fwrite(newAddTable, file = "C:/Users/oyyqwhuiss/Desktop/data_generate_all.csv")
+# startId <- 1
+# validId <- addTable[id != 0, which = TRUE]
+# endId <- length(validId)
+# # id: start~end
+# newId <- c(startId : endId)
+# newAddTable <- addTable[1:endId,]
+# rm(addTable)
+# newAddTable[,"id"] <- newId
+# fwrite(newAddTable, file = "C:/Users/oyyqwhuiss/Desktop/data_generate_all.csv")
 
 
 
 
 ## next job is to use neo4j csv bulk import to insert the data into the database
-## move the generated csv file in the <NEO4j_HOME>/import/ directory
+## move the generated .csv file inTO the directory: <NEO4j_HOME>/import/
 ## then type the cypher command in neo4j browser, it is the fastest way, running all this populate command take around 30~40 minutes
 # USING PERIODIC COMMIT
 # LOAD CSV WITH HEADERS FROM "file:///data_generate_all.csv" AS row
@@ -220,6 +204,7 @@ fwrite(newAddTable, file = "C:/Users/oyyqwhuiss/Desktop/data_generate_all.csv")
 # LOAD CSV WITH HEADERS FROM "file:///data_generate_all.csv" AS row
 # MATCH (a:Chemical),(b:Adduct) WHERE a.id = toInteger(row.POSorNEGof) AND b.id = toInteger(row.id) AND toInteger(row.isPOS) = 1
 # CREATE (a)-[:has_pos]->(b)
+
 # USING PERIODIC COMMIT
 # LOAD CSV WITH HEADERS FROM "file:///data_generate_all.csv" AS row
 # MATCH (a:Chemical),(b:Adduct) WHERE a.id = toInteger(row.POSorNEGof) AND b.id = toInteger(row.id) AND toInteger(row.isPOS) = 0
@@ -235,16 +220,16 @@ fwrite(newAddTable, file = "C:/Users/oyyqwhuiss/Desktop/data_generate_all.csv")
 # LOAD CSV WITH HEADERS FROM "file:///data_generate_all.csv" AS row
 # MATCH (a:Adduct)-[r:is_monoAdd]->(a:Adduct) WHERE a.id = toInteger(row.id) AND toInteger(row.mainAddOf) <> 0
 # SET r.mostIntTime = 1
-## link has_iso {isoRank,irInit,irMean,irStd}
+## link has_iso {isoRank,irObs, irValue, irNum, irMean, irLogMean, irStd, irLogStd}
 # USING PERIODIC COMMIT
 # LOAD CSV WITH HEADERS FROM "file:///data_generate_all.csv" AS row
 # MATCH (a:Adduct),(b:Adduct) WHERE toInteger(row.isoOf) <> 0 AND a.id = toInteger(row.isoOf) AND b.id = toInteger(row.id)
-# CREATE (a)-[:has_iso{isoRank:toInteger(row.isoRank), irInit:toFloat(row.initIR), irMean:toFloat(0), irStd:toFloat(0)}]->(b)
+# CREATE (a)-[:has_iso{isoRank:toInteger(row.isoRank), irObs:toFloat(0), irValue:toFloat(row.initIR), irNum:toInteger(0), irMean:toFloat(0), irLogMean:toFloat(0), irStd:toFloat(0), irLogStd:toFloat(0)}]->(b)
 
 
 ## build  some indexes for using
-# query = "CREATE INDEX ON :Adduct(mz)"
-# cypher(graph, query)
+query = "CREATE INDEX ON :Adduct(mz)"
+cypher(graph, query)
 
 
 ## after populate all data into database, remember keep a backup of the database!!! 
