@@ -5,7 +5,7 @@ library(mzmatch.R)
 mzmatch.init(version.1 = F)
 
 load("~/RworkingDirectory/IPA_development/data/DBs_all_compounds_only1entry.Rdata")  ##database
-load("~/RworkingDirectory/IPA_development/data/POSPriors_oneEntry.Rdata")            ##Priors
+load("./RworkingDirectory/IPA_development/data/POSPriors_oneEntry.Rdata")            ##Priors
 
 source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_Checking_RT.R')
 source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_Checking_relID.R')

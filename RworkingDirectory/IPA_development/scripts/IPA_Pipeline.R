@@ -3,15 +3,14 @@ library(mzmatch.R)
 library(RNeo4j)
 library(slam)
 library(Matrix)
-Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/class/PriorRelated/IPA_Massbased_Priors_NoRT_Rcpp.cpp')
+Rcpp::sourceCpp('./RworkingDirectory/IPA_development/class/PriorRelated/IPA_Massbased_Priors_NoRT_u_Rcpp.cpp')
+source('./RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_Checking_RT.R')
+source('./RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_Checking_relID.R')
+source('./RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_Checking_corr.R')
+source('./RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_ADD_ISO_BIO_INT_NoPot_Rcpp.R')
+Rcpp::sourceCpp('./RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_GS_INT_NoPot.cpp')   #'GS' = 'GibbsSampling'
 
-source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_Checking_RT.R')
-source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_Checking_relID.R')
-source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_Checking_corr.R')
-source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_ADD_ISO_BIO_INT_NoPot_Rcpp.R')
-Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_GS_INT_NoPot.cpp')   #'GS' = 'GibbsSampling'
-
-Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/class/UpdateRelated/IPA_Update.cpp')
+Rcpp::sourceCpp('./RworkingDirectory/IPA_development/class/UpdateRelated/IPA_Update.cpp')
 # source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_Multsample_R.R')
 # source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_Compute_post.R')
 # source('~/RworkingDirectory/IPA_development/class/PosteriorRelated/IPA_Posterior_ADD_ISO_BIO_R.R')
@@ -23,15 +22,30 @@ Rcpp::sourceCpp('~/RworkingDirectory/IPA_development/class/UpdateRelated/IPA_Upd
 #  index on the 'id' property of 'Adduct' node, if not, please set 'id' as unique property of 'Adduct' node
 #  index on the 'mz' property of 'Adduct' node, if not, please set 'mz' as an index of 'Adduct' node
 
+
+## get data from masses
+mzmatch.init(version.1 = F)
+# PeakML.Data <- PeakML.Read("/home/yuqiouyang/RworkingDirectory/IPA_development/data/allpeaks_filtered.peakml")
+PeakML.Data <- PeakML.Read("C:/Users/oyyqwhuiss/Documents/IPA_development/RworkingDirectory/IPA_development/data/allpeaks_filtered.peakml")
+PeakML.Data.Table <- PeakML.Methods.getCompleteTable(PeakML.Data)
+massMZ <- apply(PeakML.Data.Table$Masses, 2, mean, na.rm=TRUE)                 # mass values: Numeric Vector (1xM) (1x7842)
+massRT <- as.numeric(apply(PeakML.Data.Table$Retentiontimes,2, mean, na.rm=TRUE))             # RT values: Numeric Vector (1xM) (1x7842)
+massInt <- t(PeakML.Data.Table$Intensities) 
+massInt <- as.numeric(apply(massInt,1, max, na.rm=T))         # intensity values: Numeric Vector (1xM) (1x7842)
+rm(PeakML.Data)
+
+dateStart <- Sys.time()
+
+
 ## user-defined parameter
 ppm_query <- 5
 ionMode <- "pos"
 ma <- 5
-unknowP <- 0.05
+u <- ???
 limit <- 1e-02
 rtWin <- 5
-it <- 2
-burn <- 1
+it <- 200
+burn <- 20
 delAdd <- 0.4
 delIso <- 0.2
 delBio <- 1
@@ -53,19 +67,11 @@ if(ionMode == "pos"){
   ionQueryString <- "[:has_neg]"
 }
 
-## get data from masses
-mzmatch.init(version.1 = F)
-# PeakML.Data <- PeakML.Read("/home/yuqiouyang/RworkingDirectory/IPA_development/data/allpeaks_filtered.peakml")
-PeakML.Data <- PeakML.Read("C:/Users/oyyqwhuiss/Documents/RworkingDirectory/IPA_development/data/allpeaks_filtered.peakml")
-PeakML.Data.Table <- PeakML.Methods.getCompleteTable(PeakML.Data)
-massMZ <- apply(PeakML.Data.Table$Masses, 2, mean, na.rm=TRUE)                 # mass values: Numeric Vector (1xM) (1x7842)
-massRT <- as.numeric(apply(PeakML.Data.Table$Retentiontimes,2, mean, na.rm=TRUE))             # RT values: Numeric Vector (1xM) (1x7842)
-massInt <- t(PeakML.Data.Table$Intensities) 
-massInt <- as.numeric(apply(massInt,1, max, na.rm=T))         # intensity values: Numeric Vector (1xM) (1x7842)
-massMZsort <- sort(massMZ)
-rm(PeakML.Data)
 
-dateStart <- Sys.time()
+sampleNum <- 30
+massMZ <- massMZ[1:sampleNum]
+massRT <- massRT[1:sampleNum]
+massInt <- massInt[1:sampleNum]
 
 ## CHEMICAL FORMULA QUERY
 # set initial ppm, use this wo seach monoisotopic adducts in database
@@ -219,33 +225,34 @@ rm(exprInfo)
 
 # save(massMZ,fomuMZ,fomuPk,finalAdds, file="C:/Users/oyyqwhuiss/Desktop/prior_data12082018.Rdata")
 # load(file = "C:/Users/oyyqwhuiss/Desktop/prior_data12082018.Rdata")
-priorRcpp <- ComputePriorRcpp(massMZ,                    # mass values of masses
-                              fomuMZ,                    # mass values of formulas
-                              fomuPk,                    # prior knowledge of formulas
-                              NA,                        # retention time of masses (not applied yet)
-                              ma,                        # mass accuracy
-                              NULL,                      # retention time list (not applied yet)
-                              unknowP,                   # value for unknown probability
-                              limit,                     # limit used when probability value is too small
-                              TRUE,                      # print log?
-                              FALSE                      # apply retention time into prior computing?
+Prior <- NULL
+Prior <- ComputePriorRcppThesis(massMZ,                    # mass values of masses
+                                fomuMZ,                    # mass values of formulas
+                                fomuPk,                    # prior knowledge of formulas
+                                NA,                        # retention time of masses (not applied yet)
+                                ma,                        # mass accuracy
+                                NULL,                      # retention time list (not applied yet)
+                                u,               # value for unknown probability
+                                limit,                     # limit used when probability value is too small
+                                TRUE,                      # print log?
+                                FALSE                      # apply retention time into prior computing?
 )
-# save(priorRcpp, file="C:/Users/oyyqwhuiss/Desktop/prior_result12082018.Rdata")
+# save(Prior, file="C:/Users/oyyqwhuiss/Desktop/prior_result12082018.Rdata")
 # load(file="C:/Users/oyyqwhuiss/Desktop/prior_result12082018.Rdata")
 
-
 ## POSTERIOR COMPUTING
-rowName <- as.character(seq(nrow(priorRcpp))) 
+Prior[!is.finite(Prior)] <- 0
+rowName <- as.character(seq(nrow(Prior))) 
 colName <- c(as.character(finalAdds), "unknown")
-rownames(priorRcpp) <- rowName
-colnames(priorRcpp) <- colName
-massKept <- which(priorRcpp[,ncol(priorRcpp)] != 1)       # filter out those masses 100% assigned with unknow
-fomuKept <- which(col_sums(priorRcpp)>0)                  # and filter out those formulas which do not have any mass to assigned with
-prior_filtered <- priorRcpp[massKept, fomuKept]           # ??? normalised?
+rownames(Prior) <- rowName
+colnames(Prior) <- colName
+massKept <- which(Prior[,ncol(Prior)] != 1)              # filter out those masses 100% assigned with unknow
+fomuKept <- which(col_sums(Prior, na.rm = TRUE)>0)        # and filter out those formulas which do not have any mass to assigned with
+prior_filtered <- Prior[massKept, fomuKept]       
 massRT <- massRT[massKept]
 massInt <- massInt[massKept]
 lastCol <- fomuKept[length(fomuKept)]
-if(lastCol == ncol(priorRcpp)){                           # unknow has been kept
+if(lastCol == ncol(Prior)){                               # unknow has been kept
   finalAdds <- finalAdds[fomuKept[1:(length(fomuKept) - 1)]]
   newColName <- c(as.character(finalAdds), "unknown")
 } else{
@@ -254,6 +261,7 @@ if(lastCol == ncol(priorRcpp)){                           # unknow has been kept
 }
 colNameIdx <- finalAdds
 fomuNum <- length(fomuKept)
+
 
 # get valid compound set+mono adduct set
 queryStringFront <- "MATCH (m:Chemical)-"
@@ -286,7 +294,6 @@ for (i in 1:length(addCompInfo)) {
 all_valiCompIds <- sort(unique(recAllAddComp))
 rm(addCompInfo)
 
-
 # get compPK
 query <- "
 MATCH (n:Chemical)
@@ -308,16 +315,20 @@ query <- paste(queryStringFront, ionQueryString, queryStringMid, ionQueryString,
 add_monoAddIds <- vector('integer')
 add_mainAddIds <- vector('integer')
 add_monoMainInfo <- cypherToList(graph, query, monoAddId = monoComp_valiMonoAddIds, addId = finalAdds, compId = monoComp_valiCompIds)
-for (i in 1:length(add_monoMainInfo)) {
-  add_monoAddIds <- c(add_monoAddIds, add_monoMainInfo[[i]]$monoAddId)
-  add_mainAddIds <- c(add_mainAddIds, add_monoMainInfo[[i]]$mainAddId)
+if (length(add_monoMainInfo) != 0){
+  for (i in 1:length(add_monoMainInfo)) {
+    add_monoAddIds <- c(add_monoAddIds, add_monoMainInfo[[i]]$monoAddId)
+    add_mainAddIds <- c(add_mainAddIds, add_monoMainInfo[[i]]$mainAddId)
+  }
 }
 Add <- Matrix(data = 0, nrow = fomuNum, ncol = fomuNum, sparse = TRUE, dimnames = list(newColName, newColName))
-for (i in 1:length(add_monoAddIds)){
-  rowIdxString <- as.character(add_monoAddIds[i])
-  colIdxString <- as.character(add_mainAddIds[i])
-  Add[rowIdxString, colIdxString] <- 1
-  Add[colIdxString, rowIdxString] <- 1
+if (length(add_monoAddIds) != 0){
+  for (i in 1:length(add_monoAddIds)){
+    rowIdxString <- as.character(add_monoAddIds[i])
+    colIdxString <- as.character(add_mainAddIds[i])
+    Add[rowIdxString, colIdxString] <- 1
+    Add[colIdxString, rowIdxString] <- 1
+  }
 }
 rm(add_monoMainInfo)
 
@@ -331,18 +342,23 @@ iso_monoAddIds <- vector('integer')
 iso_isoIds <- vector('integer')
 iso_irs <- vector('numeric')
 iso_pairInfo <- cypherToList(graph, query, monoAddId = monoComp_valiMonoAddIds, addId = {finalAdds})
-for (i in 1:length(iso_pairInfo)) {
-  iso_monoAddIds <- c(iso_monoAddIds, iso_pairInfo[[i]]$monoAddId)
-  iso_isoIds <- c(iso_isoIds, iso_pairInfo[[i]]$isoId)
-  iso_irs <- c(iso_irs, iso_pairInfo[[i]]$irMonoIso)
+if (length(iso_pairInfo) != 0){
+  for (i in 1:length(iso_pairInfo)) {
+    iso_monoAddIds <- c(iso_monoAddIds, iso_pairInfo[[i]]$monoAddId)
+    iso_isoIds <- c(iso_isoIds, iso_pairInfo[[i]]$isoId)
+    iso_irs <- c(iso_irs, iso_pairInfo[[i]]$irMonoIso)
+  }
 }
+
 Iso <- Matrix(data = 0, nrow = fomuNum, ncol = fomuNum, sparse = TRUE, dimnames = list(newColName, newColName))
-for(i in 1:length(iso_monoAddIds)){
-  rowIdxString <- as.character(iso_monoAddIds[i])
-  colIdxString <- as.character(iso_isoIds[i])
-  irValue <- iso_irs[i]
-  Iso[rowIdxString, colIdxString] <- irValue
-  Iso[colIdxString, rowIdxString] <- 1 / irValue
+if (length(iso_monoAddIds) != 0){
+  for(i in 1:length(iso_monoAddIds)){
+    rowIdxString <- as.character(iso_monoAddIds[i])
+    colIdxString <- as.character(iso_isoIds[i])
+    irValue <- iso_irs[i]
+    Iso[rowIdxString, colIdxString] <- irValue
+    Iso[colIdxString, rowIdxString] <- 1 / irValue
+  }
 }
 rm(iso_pairInfo)
 # construct bio matrix
@@ -355,9 +371,11 @@ RETURN distinct m.id as compId, n.id as mainAddId order by m.id, n.id
 bio_compIds <- vector('integer')
 bio_compMainAddIds <- vector('integer')
 bio_compMainAddInfo <- cypherToList(graph, query, compId = monoComp_valiCompIds, addId = finalAdds)
-for (i in 1:length(bio_compMainAddInfo)) {
-  bio_compIds <- c(bio_compIds, bio_compMainAddInfo[[i]]$compId)
-  bio_compMainAddIds <- c(bio_compMainAddIds, bio_compMainAddInfo[[i]]$mainAddId)
+if(length(bio_compMainAddInfo) != 0){
+  for (i in 1:length(bio_compMainAddInfo)) {
+    bio_compIds <- c(bio_compIds, bio_compMainAddInfo[[i]]$compId)
+    bio_compMainAddIds <- c(bio_compMainAddIds, bio_compMainAddInfo[[i]]$mainAddId)
+  }
 }
 rm(bio_compMainAddInfo)
 
@@ -370,9 +388,11 @@ RETURN distinct a.id as reacCompId, b.id as reacLinkerCompId order by a.id, b.id
 bio_reac_compIds <- vector('integer')
 bio_reac_linkerCompIds <- vector('integer')
 bio_compReacInfo <- cypherToList(graph, query, validCompId = bio_compIds)
-for (i in 1:length(bio_compReacInfo)) {
-  bio_reac_compIds <- c(bio_reac_compIds, bio_compReacInfo[[i]]$reacCompId)
-  bio_reac_linkerCompIds <- c(bio_reac_linkerCompIds, bio_compReacInfo[[i]]$reacLinkerCompId)
+if(length(bio_compReacInfo) != 0){
+  for (i in 1:length(bio_compReacInfo)) {
+    bio_reac_compIds <- c(bio_reac_compIds, bio_compReacInfo[[i]]$reacCompId)
+    bio_reac_linkerCompIds <- c(bio_reac_linkerCompIds, bio_compReacInfo[[i]]$reacLinkerCompId)
+  }
 }
 rm(bio_compReacInfo)
 query <- "
@@ -383,28 +403,38 @@ RETURN distinct a.id as cofCompId, b.id as cofLinkerCompId order by a.id, b.id
 bio_cof_compIds <- vector('integer')
 bio_cof_linkerCompIds <- vector('integer')
 bio_compCofInfo <- cypherToList(graph, query, validCompId = bio_compIds)
-for (i in 1:length(bio_compCofInfo)) {
-  bio_cof_compIds <- c(bio_cof_compIds, bio_compCofInfo[[i]]$cofCompId)
-  bio_cof_linkerCompIds <- c(bio_cof_linkerCompIds, bio_compCofInfo[[i]]$cofLinkerCompId)
+if (length(bio_compCofInfo) != 0){
+  for (i in 1:length(bio_compCofInfo)) {
+    bio_cof_compIds <- c(bio_cof_compIds, bio_compCofInfo[[i]]$cofCompId)
+    bio_cof_linkerCompIds <- c(bio_cof_linkerCompIds, bio_compCofInfo[[i]]$cofLinkerCompId)
+  }
 }
 rm(bio_compCofInfo)
 
 # last, fill the bio matrix
 Bio <- Matrix(data = 0, nrow = fomuNum, ncol = fomuNum, sparse = TRUE, dimnames = list(newColName, newColName))
-for(i in 1:length(bio_reac_compIds)){
-  bio_reac_comp <- bio_reac_compIds[i]
-  bio_reac_linkcomp <- bio_reac_linkerCompIds[i]
-  bio_reac_compMainAdd <- bio_compMainAddIds[which(bio_compIds == bio_reac_comp)]
-  bio_reac_linkCompMainAdd <- bio_compMainAddIds[which(bio_compIds == bio_reac_linkcomp)]
-  Bio[as.character(bio_reac_compMainAdd),as.character(bio_reac_linkCompMainAdd)] <- 1
+if(length(bio_reac_compIds) != 0){
+  for(i in 1:length(bio_reac_compIds)){
+    bio_reac_comp <- bio_reac_compIds[i]
+    bio_reac_linkcomp <- bio_reac_linkerCompIds[i]
+    bio_reac_compMainAdd <- bio_compMainAddIds[which(bio_compIds == bio_reac_comp)]
+    bio_reac_linkCompMainAdd <- bio_compMainAddIds[which(bio_compIds == bio_reac_linkcomp)]
+    Bio[as.character(bio_reac_compMainAdd),as.character(bio_reac_linkCompMainAdd)] <- 1
+  }
 }
-for(i in 1:length(bio_cof_compIds)){
-  bio_cof_comp <- bio_cof_compIds[i]
-  bio_cof_linkcomp <- bio_cof_linkerCompIds[i]
-  bio_cof_compMainAdd <- bio_compMainAddIds[which(bio_compIds == bio_cof_comp)]
-  bio_cof_linkCompMainAdd <- bio_compMainAddIds[which(bio_compIds == bio_cof_linkcomp)]
-  Bio[as.character(bio_cof_compMainAdd),as.character(bio_cof_linkCompMainAdd)] <- 1
+
+
+if (length(bio_cof_compIds) != 0){
+  for(i in 1:length(bio_cof_compIds)){
+    bio_cof_comp <- bio_cof_compIds[i]
+    bio_cof_linkcomp <- bio_cof_linkerCompIds[i]
+    bio_cof_compMainAdd <- bio_compMainAddIds[which(bio_compIds == bio_cof_comp)]
+    bio_cof_linkCompMainAdd <- bio_compMainAddIds[which(bio_compIds == bio_cof_linkcomp)]
+    Bio[as.character(bio_cof_compMainAdd),as.character(bio_cof_linkCompMainAdd)] <- 1
+  }
 }
+
+
 # save(prior_filtered,Add,Iso,Bio,massRT,massInt,newColName, file="C:/Users/oyyqwhuiss/Desktop/posterior_data12082018.Rdata")
 # load(file="C:/Users/oyyqwhuiss/Desktop/posterior_data12082018.Rdata")
  
@@ -414,7 +444,7 @@ for(i in 1:length(bio_cof_compIds)){
 #define ARMA_64BIT_WORD
 #endif
 
-# it spent around 5 minutes to run each iteration in "it" parameter
+
 Posterior <- ComputePosteriorRcpp_Add_Iso_Bio_Int_NoPot(P = prior_filtered, Add = Add,
                                                         Iso = Iso, RT = massRT,
                                                         Bio = Bio, Int = massInt,
@@ -424,12 +454,8 @@ Posterior <- ComputePosteriorRcpp_Add_Iso_Bio_Int_NoPot(P = prior_filtered, Add 
 
 
 
-Posterior <- prior_filtered
-
-
-
 # deal with 'unknown' before update
-if(lastCol == ncol(priorRcpp)){                           # unknow has been kept
+if(lastCol == ncol(Prior)){                           # unknow has been kept
   Posterior <- Posterior[,1:(ncol(Posterior) - 1)]
 }
 
@@ -558,7 +584,7 @@ for (i in 1:length(compRTInfo)) {
 rm(compRTInfo)
 
 
-# save(colNameIdx, Posterior, Iso, Add, fomuPk, compPK, ma, massMZ, fomuMZ, obsMA, recMA, recMAdistr,  
+# save(colNameIdx, Posterior, Iso, Add, fomuPk, compPK, ma, massMZ, fomuMZ, obsMA, recMA, recMAdistr,
 #      massInt, obsIR, obsIRmonoFomu, obsIRisoFomu, recIRdistr, recIRdistrMonoFomu, recIRdistrIsoFomu,
 #      recMonoFomu, recAllAddFomu, recAllAddComp, recComp, recCompMainAddFomu, recCompMonoFomu, recMITwithInSameComp,
 #      massRT, obsCompRT, obsRTcomp, recCompRT, recRTcomp, recCompRTdistr, recRTdistrComp,
@@ -804,12 +830,11 @@ query <- "CREATE (n:Experiment { id:{id}, ionMode:{ionMode}, ppmAll:{ppmAll}, pp
                                  unknownP:{unknP}, limit:{limit}, rtWin:{rtWin}, it:{it}, burn:{burn}, delAdd:{delAdd}, delIso:{delIso}, delBio:{delBio}, ratioToll:{ratioToll}, 
                                  s_pkAdd:{s_pkAdd}, s_pkComp:{s_pkComp}, s_ma:{s_ma}, s_iso:{s_iso}, w_int:{w_int}, w_ma:{w_ma}, w_addLink:{w_addLink}, w_isoLink:{w_isoLink}, 
                                  t_rt:{t_rt}, t_post:{t_post}, massNum:{massNum}, dateRange:{dateRange}})"
-# dateStart <- Sys.time()
 
 cypher(graph, query, id = expr_maxId + 1, ionMode = ionMode, ppmAll = recMA, ppmInit = ma, ppmNew = maNew, ppmMean = ppmMean, ppmStd = ppmStd, 
        unknP = unknowP, limit = limit, rtWin = rtWin, it = it, burn = burn, delAdd = delAdd, delIso = delIso, delBio = delBio, ratioToll = ratioToll,
        s_pkAdd = s_pkAdd, s_pkComp = s_pkComp, s_ma = s_ma, s_iso = s_iso, w_int = w_int, w_ma = w_ma, w_addLink= w_addLink, w_isoLink = w_isoLink,
        t_rt = t_rt, t_post = t_post, massNum = massNum, dateRange = c(dateStart, Sys.time()))
 
-query = "CREATE CONSTRAINT ON (n:Experiment) ASSERT n.id IS UNIQUE"
-cypher(graph, query)
+# query = "CREATE CONSTRAINT ON (n:Experiment) ASSERT n.id IS UNIQUE"
+# cypher(graph, query)

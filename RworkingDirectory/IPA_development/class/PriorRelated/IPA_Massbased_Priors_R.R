@@ -106,7 +106,7 @@
   }
   
   if(!is.null(compId)){
-    colnames(pr) <- c(compId,"unknown")
+    colnames(pr) <- c(as.character(compId),"unknown")
   }
 
     return(pr)

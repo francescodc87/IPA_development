@@ -40,26 +40,27 @@
   allsampcomp <- matrix(0,it, M) # matrix of all the samples
   v <- 0
   for (i in 1:it){
-    cat("1")
+    w <- 0
+    # cat("1")
     ordine <- sample(M)  # randomising the order used to cheack all assignments
     j <- 0
     for (thism in ordine){
-      cat("2")
+      # cat("2")
       #counting adducts
       p.add <- colSums(matrix(Add[sampcomp[-remIdx[[thism]]],], ncol=Nc))
-      cat("3")
+      # cat("3")
       ###counting isotopes
       tmp <- matrix(Iso[sampcomp[-remIdx[[thism]]],],ncol = Nc)*(Int[thism]/Int[-remIdx[[thism]]])
       ind.ones <- which((tmp>=ratioToll) & (tmp <=(1/ratioToll))) 
-      cat("ind.ones")
-      print(ind.ones)
+      # cat("ind.ones")
+      # print(ind.ones)
       tmp[ind.ones]<-1
       tmp[tmp!=1] <-0
       p.iso<-colSums(tmp)
-      cat("4")
+      # cat("4")
       ##counting biotransformations
       p.bio <- pot.bio - colSums(matrix(Bio[sampcomp[thism],], ncol=Nc))
-      cat("5")
+      # cat("5")
       ### adding penalities
       if(!is.null(unknownPen)){
         p.add[length(p.add)] <- unknownPen
@@ -72,11 +73,11 @@
       p.iso <- (p.iso + delIso)/sum(p.iso+delIso)
       p.bio <- (p.bio + delBio)/sum(p.bio+delBio)
 
-      cat("6")
+      # cat("6")
       # cat("p.add")
       # print(p.add)
-      cat("p.iso")
-      print(p.iso)
+      # cat("p.iso")
+      # print(p.iso)
       # cat("p.bio")
       # print(p.bio)
       ## merging scores
@@ -86,7 +87,7 @@
       po <- po/sum(po)
       oldval <- sampcomp[thism]
       sampcomp[thism] <- multsample(po)
-      cat("7")
+      # cat("7")
       if(oldval!=sampcomp[thism]){
         pot.bio <- pot.bio - Bio[,oldval] 
         pot.bio <- pot.bio + Bio[,sampcomp[thism]]
@@ -94,7 +95,7 @@
       
       if(log){
         old_w <- w
-        w = (j * 100) / M
+        w = (j * 100) %/% M
         if(old_w != w){
           cat("thism iteration: ", paste0(round(w, 0), "%", "\n"))
           if(w %% 10 == 0){
@@ -105,7 +106,7 @@
       j <- j + 1
     }
     allsampcomp[i,] <- sampcomp
-    cat("8")
+    # cat("8")
     if(log){
       old_v <- v;
       v = (i * 100) / it

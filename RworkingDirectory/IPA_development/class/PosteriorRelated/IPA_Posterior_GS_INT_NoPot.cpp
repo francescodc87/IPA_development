@@ -94,7 +94,7 @@ arma::uvec setDiff(arma::uvec x, arma::uvec y){
   }
   return result;
 }
-
+// arma::rowvec pIso_rvec = thresholdIntRatio(iso_spMat, retainFomu_rvec, massInt_rvec.at(thism) / massIntRatio_rvec, ratioToll);
 arma::rowvec thresholdIntRatio(arma::sp_mat x, arma::rowvec cols, arma::rowvec massRatios, double r){
   NumericVector row;
   NumericVector rowSum;
@@ -103,9 +103,9 @@ arma::rowvec thresholdIntRatio(arma::sp_mat x, arma::rowvec cols, arma::rowvec m
     // Rcout << "picked a column" << std::endl;
     int colNum = cols.at(i);
     // Rcout << "colNum: " << colNum << std::endl;
-    arma::sp_mat::const_col_iterator xStart = x.begin_col(colNum);
-    arma::sp_mat::const_col_iterator xEnd   = x.end_col(colNum);
-    for(arma::sp_mat::const_col_iterator it = xStart; it != xEnd; ++it){
+    arma::sp_mat::const_iterator xStart = x.begin_col(colNum);
+    arma::sp_mat::const_iterator xEnd   = x.end_col(colNum);
+    for(arma::sp_mat::const_iterator it = xStart; it != xEnd; ++it){
       // Rcout << "start sparese matrix column iteration" << std::endl;
       double value = (*it);
       // Rcout << "value: " << value << std::endl;
@@ -148,10 +148,10 @@ arma::rowvec thresholdIntRatio(arma::sp_mat x, arma::rowvec cols, arma::rowvec m
 //   // // Rcout << "UVector" << std::endl;
 //   x.t().raw_print(std::cout);
 // }
-// void printOutRvec(arma::rowvec x){
-//   // // Rcout << "RVector" << std::endl;
-//   x.raw_print(std::cout);
-// }
+void printOutRvec(arma::rowvec x){
+  // // Rcout << "RVector" << std::endl;
+  x.raw_print(std::cout);
+}
 // void printOutNvec(NumericVector x){
 //   for(int i = 0; i < x.length(); i++){
 //     // // Rcout << "NumericVector, " << x.at(i) << std::endl;
@@ -216,10 +216,12 @@ arma::sp_mat GibbsSampling_Int_NoPot(   List removal,
       // assignmented compounds of masses retained
       NumericVector remMass = removal.at(thism);
       arma::uvec remMass_uvec = as<arma::uvec>(remMass);
-      arma::uvec retainMass_uvec = setDiff(seqMass_uvec,remMass_uvec);
+      remMass_uvec = remMass_uvec - 1;
+      arma::rowvec remMassFlag_rvec = arma::zeros<arma::rowvec>(massNum);
+      remMassFlag_rvec.elem(remMass_uvec).fill(1);
+      arma::uvec retainMass_uvec = arma::find(remMassFlag_rvec == 0);
       arma::rowvec retainFomu_rvec;
       if(!retainMass_uvec.is_empty()){
-        retainMass_uvec = retainMass_uvec - 1;
         retainFomu_rvec = sampFomu_rvec.elem(retainMass_uvec).t();
       }
       // Rcout<< "comlete retainFomu" << std::endl;
@@ -255,6 +257,16 @@ arma::sp_mat GibbsSampling_Int_NoPot(   List removal,
       pBio_rvec = (pBio_rvec + delBio) / sum(pBio_rvec + delBio);
       arma::rowvec prior_rvec  = spVectorGetDenseCol(prior_spMat.col(thism));
       arma::rowvec post_rvec = prior_rvec % pAdd_rvec % pIso_rvec % pBio_rvec;
+      // Rcout<< "pAdd_rvec" << std::endl;
+      // printOutRvec(pAdd_rvec);
+      //   Rcout<< "pIso_rvec" << std::endl;
+      // printOutRvec(pIso_rvec);
+      //   Rcout<< "pBio_rvec" << std::endl;
+      // printOutRvec(pBio_rvec);
+      //   Rcout<< "prior_rvec" << std::endl;
+      // printOutRvec(prior_rvec);
+      //   Rcout<< "post_rvec" << std::endl;
+      // printOutRvec(post_rvec);
       // Rcout<< "comlete post_rvec" << std::endl;
       
       // eliminate negative value

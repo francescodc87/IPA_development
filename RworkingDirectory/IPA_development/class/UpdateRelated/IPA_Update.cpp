@@ -583,6 +583,9 @@ List UpdateMain(NumericVector colNameIdx,
     
     // calculate and record observed mass accuracies (negative values allowed)
     double maValue = ((massMZ[theLeftMassNum] - fomuMZ[theLeftFomuNum]) * 1e6 ) / fomuMZ[theLeftFomuNum];
+    if (maValue >= 50){
+      Rcout << "theLeftMassNum: " << theLeftMassNum << "; theLeftFomuNum: " << theLeftFomuNum << std::endl;
+    }
     obsMA.push_back(maValue);
     recMA.push_back(maValue);
     

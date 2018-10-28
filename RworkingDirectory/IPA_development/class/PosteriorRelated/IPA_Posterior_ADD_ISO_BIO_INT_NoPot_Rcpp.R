@@ -29,6 +29,7 @@
     })
   }
 
+  # cat("here");
   post <- GibbsSampling_Int_NoPot(remIdx,
                                   Add,
                                   Iso,
